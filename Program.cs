@@ -20,46 +20,72 @@ namespace AddToPath
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            if (args.Length == 0)
+            if (args.Length > 0)
             {
-                // If no arguments, we're being run directly - install the context menu
-                if (!IsRunningAsAdmin())
-                {
-                    RestartAsAdmin();
-                    return;
-                }
-                InstallApplication();
+                // If we have arguments, we're either:
+                // 1. Being called from context menu with a folder path
+                // 2. Being called with --uninstall
+                HandleCommandLineArgs(args);
+                return;
             }
-            else if (args[0].ToLower() == "--uninstall")
+
+            // Check if we're running elevated without arguments
+            // This means we were restarted for installation
+            if (IsRunningAsAdmin())
             {
-                // Uninstall mode
-                if (!IsRunningAsAdmin())
-                {
-                    RestartAsAdmin(args);
-                    return;
-                }
+                InstallApplication();
+                return;
+            }
+
+            // No arguments and not elevated - show the main form
+            Application.Run(new MainForm());
+        }
+
+        private static void HandleCommandLineArgs(string[] args)
+        {
+            if (!IsRunningAsAdmin())
+            {
+                RestartAsAdmin(args);
+                return;
+            }
+
+            if (args[0].ToLower() == "--uninstall")
+            {
                 UninstallContextMenu();
             }
             else
             {
-                // We're being called from the context menu with a folder path
-                if (!IsRunningAsAdmin())
-                {
-                    // Restart as admin with the same arguments
-                    RestartAsAdmin(args);
-                    return;
-                }
-                string folderPath = args[0].Trim('"'); // Remove quotes if present
+                // Assume it's a folder path
+                string folderPath = args[0].Trim('"');
                 AddFolderToPath(folderPath);
             }
         }
 
-        private static void InstallApplication()
+        public static bool IsInstalledInProgramFiles()
         {
+            // Check if we're running from Program Files
+            bool runningFromProgramFiles = Application.ExecutablePath.Equals(
+                InstalledExePath, 
+                StringComparison.OrdinalIgnoreCase);
+
+            // Or check if the Program Files copy exists
+            bool installedCopyExists = File.Exists(InstalledExePath);
+
+            return runningFromProgramFiles || installedCopyExists;
+        }
+
+        public static void InstallApplication()
+        {
+            if (!IsRunningAsAdmin())
+            {
+                RestartAsAdmin();
+                return;
+            }
+
             try
             {
                 string currentExePath = Application.ExecutablePath;
-                
+
                 // Create program files directory if it doesn't exist
                 if (!Directory.Exists(ProgramFilesPath))
                 {
@@ -67,15 +93,14 @@ namespace AddToPath
                 }
 
                 // If we're not already in Program Files, copy ourselves there
-                if (!currentExePath.Equals(InstalledExePath, StringComparison.OrdinalIgnoreCase))
+                if (!IsInstalledInProgramFiles())
                 {
                     if (File.Exists(InstalledExePath))
                     {
-                        // If updating, make sure to copy over the new version
                         File.Delete(InstalledExePath);
                     }
                     File.Copy(currentExePath, InstalledExePath);
-                    
+
                     // Also copy the manifest file
                     string manifestPath = Path.Combine(
                         Path.GetDirectoryName(currentExePath),
@@ -86,9 +111,35 @@ namespace AddToPath
                             Path.Combine(ProgramFilesPath, "app.manifest"),
                             true);
                     }
+
+                    // Start the installed version and exit this one
+                    Process.Start(InstalledExePath);
+                    Environment.Exit(0);
                 }
 
-                // Create context menu for folders using the installed exe path
+                // Install the context menu
+                InstallContextMenuOnly();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Error installing application: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        public static void InstallContextMenuOnly()
+        {
+            if (!IsRunningAsAdmin())
+            {
+                RestartAsAdmin();
+                return;
+            }
+
+            try
+            {
                 using (RegistryKey key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\AddToPath"))
                 {
                     key.SetValue("", "Add to System PATH");
@@ -101,30 +152,29 @@ namespace AddToPath
                 }
 
                 MessageBox.Show(
-                    "Application installed successfully!\nYou can now right-click any folder and select 'Add to System PATH'.",
-                    "Success", 
+                    "Context menu installed successfully!\nYou can now right-click any folder and select 'Add to System PATH'.",
+                    "Success",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
-
-                // If we just copied ourselves to Program Files, suggest running that version instead
-                if (!currentExePath.Equals(InstalledExePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    Process.Start(InstalledExePath);
-                    Environment.Exit(0);
-                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Error installing application: {ex.Message}",
+                    $"Error installing context menu: {ex.Message}",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
         }
 
-        private static void UninstallContextMenu()
+        public static void UninstallContextMenu()
         {
+            if (!IsRunningAsAdmin())
+            {
+                RestartAsAdmin(new[] { "--uninstall" });
+                return;
+            }
+
             try
             {
                 // Remove the context menu entries
@@ -158,7 +208,7 @@ namespace AddToPath
             {
                 string currentPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
                 string[] paths = currentPath.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                
+
                 // Check if path already exists (case-insensitive)
                 if (Array.Exists(paths, p => string.Equals(p, folderPath, StringComparison.OrdinalIgnoreCase)))
                 {
@@ -173,7 +223,7 @@ namespace AddToPath
                 // Add the new path
                 string newPath = currentPath.TrimEnd(';') + ";" + folderPath;
                 Environment.SetEnvironmentVariable("PATH", newPath, EnvironmentVariableTarget.Machine);
-                
+
                 MessageBox.Show(
                     $"Added '{folderPath}' to system PATH successfully!",
                     "Success",
@@ -190,7 +240,7 @@ namespace AddToPath
             }
         }
 
-        private static bool IsRunningAsAdmin()
+        public static bool IsRunningAsAdmin()
         {
             using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
             {
