@@ -38,3 +38,7 @@ This project is built using:
 - C# Windows Forms
 - .NET Framework 4.7.2
 - Visual Studio 2022 or later
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
