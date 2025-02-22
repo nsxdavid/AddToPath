@@ -9,21 +9,47 @@ namespace AddToPath
     {
         private readonly Button installButton;
         private readonly Button uninstallButton;
+        private readonly Label titleLabel;
         private readonly Label descriptionLabel;
+        private readonly Panel contentPanel;
+        private readonly TableLayoutPanel buttonPanel;
 
         public MainForm()
         {
             Text = "Add to PATH - Windows Context Menu Utility";
-            Size = new Size(500, 300);
+            Size = new Size(520, 340);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
+            BackColor = Color.White;
+            Font = new Font("Segoe UI", 9F);
+            Padding = new Padding(20);
+
+            // Main content panel
+            contentPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 0, 10)
+            };
+            Controls.Add(contentPanel);
+
+            // Title
+            titleLabel = new Label
+            {
+                Text = "Add to PATH Context Menu",
+                Font = new Font("Segoe UI", 16F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(0, 99, 155),
+                AutoSize = true,
+                Margin = new Padding(0, 0, 0, 15)
+            };
+            contentPanel.Controls.Add(titleLabel);
 
             // Description text
             descriptionLabel = new Label
             {
-                Location = new Point(20, 20),
-                Size = new Size(440, 160),
+                Location = new Point(0, titleLabel.Bottom + 15),
+                Size = new Size(460, 140),
+                Font = new Font("Segoe UI", 9.75F),
                 Text = "This utility adds an 'Add to System PATH' option to your Windows context menu " +
                       "when right-clicking on folders.\n\n" +
                       "After installation, you can right-click any folder and select 'Add to System PATH' " +
@@ -32,37 +58,68 @@ namespace AddToPath
                       "the registry and system PATH.",
                 TextAlign = ContentAlignment.TopLeft
             };
-            Controls.Add(descriptionLabel);
+            contentPanel.Controls.Add(descriptionLabel);
+
+            // Button panel
+            buttonPanel = new TableLayoutPanel
+            {
+                ColumnCount = 2,
+                Dock = DockStyle.Bottom,
+                Height = 40,
+                Padding = new Padding(0),
+                ColumnStyles = {
+                    new ColumnStyle(SizeType.Percent, 50F),
+                    new ColumnStyle(SizeType.Percent, 50F)
+                }
+            };
+            Controls.Add(buttonPanel);
 
             // Install button
             installButton = new Button
             {
-                Text = "Install Context Menu",
-                Size = new Size(150, 30),
-                Location = new Point(80, 200)
+                Size = new Size(200, 32),
+                Font = new Font("Segoe UI", 9.75F),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.None,
+                UseVisualStyleBackColor = true
             };
+            installButton.FlatAppearance.BorderColor = Color.FromArgb(0, 120, 215);
             installButton.Click += InstallButton_Click;
-            Controls.Add(installButton);
+            buttonPanel.Controls.Add(installButton, 0, 0);
 
             // Uninstall button
             uninstallButton = new Button
             {
-                Text = "Uninstall",
-                Size = new Size(150, 30),
-                Location = new Point(250, 200)
+                Size = new Size(200, 32),
+                Font = new Font("Segoe UI", 9.75F),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.None,
+                UseVisualStyleBackColor = true
             };
+            uninstallButton.FlatAppearance.BorderColor = Color.FromArgb(170, 170, 170);
             uninstallButton.Click += UninstallButton_Click;
-            Controls.Add(uninstallButton);
+            buttonPanel.Controls.Add(uninstallButton, 1, 0);
 
-            // Update button states based on installation status
+            // Update button states
             UpdateButtonStates();
         }
 
         private void UpdateButtonStates()
         {
             bool isInstalled = Program.IsInstalledInProgramFiles();
+            
+            // Install button styling
             installButton.Text = isInstalled ? "Repair Installation" : "Install Context Menu";
+            installButton.BackColor = Color.FromArgb(0, 120, 215);
+            installButton.ForeColor = Color.White;
+            
+            // Uninstall button styling
+            uninstallButton.Text = "Uninstall";
             uninstallButton.Enabled = isInstalled;
+            uninstallButton.BackColor = uninstallButton.Enabled ? Color.White : Color.FromArgb(240, 240, 240);
+            uninstallButton.ForeColor = uninstallButton.Enabled ? Color.FromArgb(51, 51, 51) : Color.FromArgb(170, 170, 170);
         }
 
         private void RestartAsAdmin(string[] args = null)
