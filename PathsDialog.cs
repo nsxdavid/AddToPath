@@ -11,6 +11,8 @@ namespace AddToPath
         private readonly RichTextBox pathsTextBox;
         private readonly bool showUser;
         private readonly bool showSystem;
+        private readonly Panel headerPanel;
+        private readonly Label titleLabel;
 
         public PathsDialog(bool showUser = true, bool showSystem = true)
         {
@@ -20,26 +22,81 @@ namespace AddToPath
                 this.showUser = showUser;
                 this.showSystem = showSystem;
 
+                // Form settings
                 Text = "PATH Variables";
                 Size = new Size(800, 600);
                 StartPosition = FormStartPosition.CenterScreen;
-                MinimizeBox = false;
+                MinimizeBox = true;
                 MaximizeBox = true;
                 FormBorderStyle = FormBorderStyle.Sizable;
+                BackColor = Color.White;
+
+                // Main container
+                var mainContainer = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    RowCount = 2,
+                    ColumnCount = 1,
+                    Margin = new Padding(0),
+                    Padding = new Padding(0)
+                };
+                mainContainer.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
+                mainContainer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                Controls.Add(mainContainer);
+
+                // Header panel
+                headerPanel = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = Color.FromArgb(0, 120, 212),
+                    Margin = new Padding(0)
+                };
+
+                titleLabel = new Label
+                {
+                    Text = showUser && showSystem ? "All PATHs" :
+                           showUser ? "User PATH" : "System PATH",
+                    ForeColor = Color.White,
+                    Font = new Font("Segoe UI", 16, FontStyle.Regular),
+                    AutoSize = true,
+                    Location = new Point(20, 15)
+                };
+
+                headerPanel.Controls.Add(titleLabel);
+                mainContainer.Controls.Add(headerPanel, 0, 0);
+
+                // Main content
+                var contentPanel = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    Padding = new Padding(20),
+                    Margin = new Padding(0)
+                };
 
                 pathsTextBox = new RichTextBox
                 {
                     Dock = DockStyle.Fill,
                     ReadOnly = true,
-                    Font = new Font("Consolas", 10F),
+                    Font = new Font("Cascadia Code", 10F),
                     BackColor = Color.White,
                     ForeColor = Color.Black,
-                    Margin = new Padding(10),
-                    WordWrap = false
+                    BorderStyle = BorderStyle.None,
+                    WordWrap = false,
+                    Margin = new Padding(0)
                 };
 
-                Controls.Add(pathsTextBox);
-                
+                // Add a subtle border to the text box
+                var borderPanel = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    Padding = new Padding(1),
+                    BackColor = Color.FromArgb(200, 200, 200),
+                    Margin = new Padding(0)
+                };
+                borderPanel.Controls.Add(pathsTextBox);
+                contentPanel.Controls.Add(borderPanel);
+                mainContainer.Controls.Add(contentPanel, 0, 1);
+
                 Program.LogMessage("Created and configured PathsDialog window");
 
                 LoadPaths();
