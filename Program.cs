@@ -24,31 +24,53 @@ namespace AddToPath
 
             if (args.Length > 0)
             {
-                if (!IsRunningAsAdmin())
+                string cmd = args[0].ToLower();
+                LogMessage($"Command received: {cmd} with {args.Length} arguments");
+
+                // If we have multiple arguments and it's a path command, join them
+                string path = null;
+                if (args.Length > 1 && (cmd == "--addtopath" || cmd == "--removefrompath"))
+                {
+                    // Join all arguments after the command into a single path
+                    path = string.Join(" ", args.Skip(1));
+                    LogMessage($"Reconstructed path: {path}");
+                }
+                else if (args.Length > 1)
+                {
+                    path = args[1];
+                    LogMessage($"Argument 1: {path}");
+                }
+
+                bool needsAdmin = cmd == "--install" || 
+                                cmd == "--uninstall" || 
+                                cmd == "--addtopath" || 
+                                cmd == "--removefrompath";
+
+                if (needsAdmin && !IsRunningAsAdmin())
                 {
                     RestartAsAdmin(args);
                     return;
                 }
 
-                switch (args[0].ToLower())
+                switch (cmd)
                 {
                     case "--uninstall":
                         UninstallContextMenu();
                         return;
                     case "--addtopath":
-                        if (args.Length > 1 && Directory.Exists(args[1]))
+                        if (path != null && Directory.Exists(path))
                         {
-                            AddToPath(args[1]);
+                            AddToPath(path);
                         }
                         return;
                     case "--removefrompath":
-                        if (args.Length > 1 && Directory.Exists(args[1]))
+                        if (path != null && Directory.Exists(path))
                         {
-                            RemoveFromPath(args[1]);
+                            RemoveFromPath(path);
                         }
                         return;
                     case "--showpaths":
-                        ShowPathDialog();
+                        ShowPaths();
                         return;
                     case "--install":
                         InstallContextMenu();
@@ -223,33 +245,71 @@ namespace AddToPath
             }
         }
 
+        private static void LogMessage(string message)
+        {
+            try
+            {
+                string logPath = Path.Combine(Path.GetTempPath(), "AddToPath.log");
+                File.AppendAllText(logPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}\n");
+            }
+            catch
+            {
+                // Ignore logging errors
+            }
+        }
+
         private static void AddToPath(string path)
         {
-            var envPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-            var paths = envPath.Split(';').Select(p => p.TrimEnd('\\')).ToList();
+            try 
+            {
+                var envPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+                var paths = envPath.Split(';').Select(p => p.TrimEnd('\\')).ToList();
+                var normalizedPath = path.TrimEnd('\\');
 
-            if (!paths.Contains(path.TrimEnd('\\')))
-            {
-                paths.Add(path);
-                Environment.SetEnvironmentVariable(
-                    "PATH",
-                    string.Join(";", paths),
-                    EnvironmentVariableTarget.Machine
-                );
-                MessageBox.Show(
-                    $"Added '{path}' to system PATH successfully.",
-                    "Success",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
+                LogMessage($"Current PATH: {envPath}");
+                LogMessage($"Adding path: {normalizedPath}");
+
+                if (!paths.Contains(normalizedPath))
+                {
+                    paths.Add(normalizedPath);
+                    var newPath = string.Join(";", paths);
+                    LogMessage($"New PATH will be: {newPath}");
+
+                    Environment.SetEnvironmentVariable(
+                        "PATH",
+                        newPath,
+                        EnvironmentVariableTarget.Machine
+                    );
+
+                    var verifyPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+                    LogMessage($"Verified PATH after set: {verifyPath}");
+
+                    MessageBox.Show(
+                        $"Added '{path}' to system PATH successfully.",
+                        "Success",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+                else
+                {
+                    LogMessage($"Path already exists in: {envPath}");
+                    MessageBox.Show(
+                        $"'{path}' is already in the system PATH.",
+                        "Already Added",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
             }
-            else
+            catch (Exception ex)
             {
+                LogMessage($"Error in AddToPath: {ex}");
                 MessageBox.Show(
-                    $"'{path}' is already in the system PATH.",
-                    "Already Added",
+                    $"Error adding to PATH: {ex.Message}",
+                    "Error",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
+                    MessageBoxIcon.Error
                 );
             }
         }
@@ -286,35 +346,12 @@ namespace AddToPath
             }
         }
 
-        private static void ShowPathDialog()
+        private static void ShowPaths()
         {
-            var envPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-            var paths = envPath.Split(';')
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .Select(p => p.TrimEnd('\\'))
-                .OrderBy(p => p)
-                .ToList();
-
-            var pathForm = new Form
+            using (var dialog = new PathsDialog())
             {
-                Text = "System PATH Entries",
-                Size = new System.Drawing.Size(600, 400),
-                StartPosition = FormStartPosition.CenterScreen,
-                MinimizeBox = false,
-                MaximizeBox = false,
-                FormBorderStyle = FormBorderStyle.FixedDialog
-            };
-
-            var listBox = new ListBox
-            {
-                Dock = DockStyle.Fill,
-                Font = new System.Drawing.Font("Segoe UI", 9.75F),
-                IntegralHeight = false
-            };
-            listBox.Items.AddRange(paths.Cast<object>().ToArray());
-
-            pathForm.Controls.Add(listBox);
-            pathForm.ShowDialog();
+                dialog.ShowDialog();
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ namespace AddToPath
     {
         private readonly Button installButton;
         private readonly Button uninstallButton;
+        private readonly Button showPathsButton;
         private readonly Label titleLabel;
         private readonly Label descriptionLabel;
         private readonly Panel contentPanel;
@@ -65,13 +66,14 @@ namespace AddToPath
             // Button panel
             buttonPanel = new TableLayoutPanel
             {
-                ColumnCount = 2,
+                ColumnCount = 3,
                 Dock = DockStyle.Bottom,
                 Height = 40,
                 Padding = new Padding(0),
                 ColumnStyles = {
-                    new ColumnStyle(SizeType.Percent, 50F),
-                    new ColumnStyle(SizeType.Percent, 50F)
+                    new ColumnStyle(SizeType.Percent, 33.33F),
+                    new ColumnStyle(SizeType.Percent, 33.33F),
+                    new ColumnStyle(SizeType.Percent, 33.33F)
                 }
             };
             Controls.Add(buttonPanel);
@@ -79,7 +81,7 @@ namespace AddToPath
             // Install button
             installButton = new Button
             {
-                Size = new Size(200, 32),
+                Size = new Size(150, 32),
                 Font = new Font("Segoe UI", 9.75F),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
@@ -93,7 +95,7 @@ namespace AddToPath
             // Uninstall button
             uninstallButton = new Button
             {
-                Size = new Size(200, 32),
+                Size = new Size(150, 32),
                 Font = new Font("Segoe UI", 9.75F),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
@@ -103,6 +105,20 @@ namespace AddToPath
             uninstallButton.FlatAppearance.BorderColor = Color.FromArgb(170, 170, 170);
             uninstallButton.Click += UninstallButton_Click;
             buttonPanel.Controls.Add(uninstallButton, 1, 0);
+
+            // Show paths button
+            showPathsButton = new Button
+            {
+                Size = new Size(150, 32),
+                Font = new Font("Segoe UI", 9.75F),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.None,
+                UseVisualStyleBackColor = true
+            };
+            showPathsButton.FlatAppearance.BorderColor = Color.FromArgb(0, 120, 215);
+            showPathsButton.Click += ShowPathsButton_Click;
+            buttonPanel.Controls.Add(showPathsButton, 2, 0);
 
             // Update button states
             UpdateButtonStates();
@@ -120,8 +136,14 @@ namespace AddToPath
             // Uninstall button styling
             uninstallButton.Text = "Uninstall";
             uninstallButton.Enabled = isInstalled;
-            uninstallButton.BackColor = uninstallButton.Enabled ? Color.White : Color.FromArgb(240, 240, 240);
-            uninstallButton.ForeColor = uninstallButton.Enabled ? Color.FromArgb(51, 51, 51) : Color.FromArgb(170, 170, 170);
+            uninstallButton.BackColor = uninstallButton.Enabled ? Color.White : Color.FromArgb(235, 235, 235);
+            uninstallButton.ForeColor = uninstallButton.Enabled ? Color.FromArgb(51, 51, 51) : Color.FromArgb(160, 160, 160);
+            uninstallButton.FlatAppearance.BorderColor = uninstallButton.Enabled ? Color.FromArgb(170, 170, 170) : Color.FromArgb(200, 200, 200);
+
+            // Show paths button styling
+            showPathsButton.Text = "Show PATHs";
+            showPathsButton.BackColor = Color.White;
+            showPathsButton.ForeColor = Color.FromArgb(51, 51, 51);
         }
 
         private void RestartAsAdmin(string[] args = null)
@@ -177,8 +199,21 @@ namespace AddToPath
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Warning) == DialogResult.OK)
             {
+                if (!Program.IsRunningAsAdmin())
+                {
+                    RestartAsAdmin(new[] { "--uninstall" });
+                    return;
+                }
                 Program.UninstallContextMenu();
                 UpdateButtonStates();
+            }
+        }
+
+        private void ShowPathsButton_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new PathsDialog())
+            {
+                dialog.ShowDialog();
             }
         }
     }
