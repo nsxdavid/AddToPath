@@ -50,10 +50,12 @@ namespace AddToPath
                 Location = new Point(0, titleLabel.Bottom + 15),
                 Size = new Size(460, 140),
                 Font = new Font("Segoe UI", 9.75F),
-                Text = "This utility adds an 'Add to System PATH' option to your Windows context menu " +
+                Text = "This utility adds a 'Path' submenu to your Windows context menu " +
                       "when right-clicking on folders.\n\n" +
-                      "After installation, you can right-click any folder and select 'Add to System PATH' " +
-                      "to quickly add that folder to your system's PATH environment variable.\n\n" +
+                      "After installation, you can right-click any folder to access the following options:\n" +
+                      "• Add to PATH - Add the folder to system PATH\n" +
+                      "• Remove from PATH - Remove the folder from system PATH\n" +
+                      "• Show PATHs - View all current PATH entries\n\n" +
                       "Note: Installing or uninstalling will require administrator privileges to modify " +
                       "the registry and system PATH.",
                 TextAlign = ContentAlignment.TopLeft
@@ -155,26 +157,28 @@ namespace AddToPath
         private void InstallButton_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show(
-                "This will add the 'Add to System PATH' option to your folder context menu.\n\n" +
+                "This will add the 'Path' menu to your folder context menu.\n\n" +
                 "Administrator rights will be required to continue.",
                 "Confirm Installation",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Information) == DialogResult.OK)
             {
-                RestartAsAdmin();
+                Program.InstallContextMenu();
+                UpdateButtonStates();
             }
         }
 
         private void UninstallButton_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show(
-                "This will remove the 'Add to System PATH' option from your folder context menu.\n\n" +
+                "This will remove the 'Path' menu from your folder context menu.\n\n" +
                 "Administrator rights will be required to continue.",
                 "Confirm Uninstallation",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Warning) == DialogResult.OK)
             {
-                RestartAsAdmin(new[] { "--uninstall" });
+                Program.UninstallContextMenu();
+                UpdateButtonStates();
             }
         }
     }
