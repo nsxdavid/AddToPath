@@ -1,60 +1,105 @@
 using System;
 using System.Drawing;
 using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 
 namespace AddToPath
 {
-    public class PathsDialog : Form
+    public partial class PathsDialog : Form
     {
-        private readonly ListView listView;
+        private readonly RichTextBox pathsTextBox;
+        private readonly bool showUser;
+        private readonly bool showSystem;
 
-        public PathsDialog()
+        public PathsDialog(bool showUser = true, bool showSystem = true)
         {
-            Text = "System PATH Entries";
-            Size = new Size(600, 400);
-            MinimumSize = new Size(400, 300);
-            StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.Sizable;
-
-            listView = new ListView
+            try
             {
-                Dock = DockStyle.Fill,
-                View = View.Details,
-                FullRowSelect = true,
-                GridLines = true,
-                HeaderStyle = ColumnHeaderStyle.Nonclickable,
-                Scrollable = true
-            };
-            listView.Columns.Add("Path", -2, HorizontalAlignment.Left);
-            Controls.Add(listView);
+                Program.LogMessage($"Initializing PathsDialog with showUser={showUser}, showSystem={showSystem}");
+                this.showUser = showUser;
+                this.showSystem = showSystem;
 
-            LoadPaths();
+                Text = "PATH Variables";
+                Size = new Size(800, 600);
+                StartPosition = FormStartPosition.CenterScreen;
+                MinimizeBox = false;
+                MaximizeBox = true;
+                FormBorderStyle = FormBorderStyle.Sizable;
+
+                pathsTextBox = new RichTextBox
+                {
+                    Dock = DockStyle.Fill,
+                    ReadOnly = true,
+                    Font = new Font("Consolas", 10F),
+                    BackColor = Color.White,
+                    ForeColor = Color.Black,
+                    Margin = new Padding(10),
+                    WordWrap = false
+                };
+
+                Controls.Add(pathsTextBox);
+                
+                Program.LogMessage("Created and configured PathsDialog window");
+
+                LoadPaths();
+            }
+            catch (Exception ex)
+            {
+                Program.LogMessage($"Error in PathsDialog constructor: {ex}");
+                throw;
+            }
         }
 
         private void LoadPaths()
         {
-            listView.Items.Clear();
-            var paths = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)?.Split(';') ?? Array.Empty<string>();
-            
-            foreach (var path in paths.Where(p => !string.IsNullOrWhiteSpace(p)))
+            try
             {
-                var item = new ListViewItem(path.Trim());
-                item.ToolTipText = path.Trim(); // Show full path on hover
-                listView.Items.Add(item);
-            }
+                Program.LogMessage("Loading paths...");
+                var sb = new StringBuilder();
 
-            // Auto-size column after adding items
-            listView.Columns[0].Width = -2;
+                if (showUser)
+                {
+                    var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+                    Program.LogMessage($"User PATH: {userPath}");
+                    sb.AppendLine("User PATH:");
+                    sb.AppendLine("----------");
+                    foreach (var path in userPath.Split(';').Where(p => !string.IsNullOrWhiteSpace(p)))
+                    {
+                        sb.AppendLine(path);
+                    }
+                    sb.AppendLine();
+                }
+
+                if (showSystem)
+                {
+                    var systemPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+                    Program.LogMessage($"System PATH: {systemPath}");
+                    sb.AppendLine("System PATH:");
+                    sb.AppendLine("------------");
+                    foreach (var path in systemPath.Split(';').Where(p => !string.IsNullOrWhiteSpace(p)))
+                    {
+                        sb.AppendLine(path);
+                    }
+                }
+
+                pathsTextBox.Text = sb.ToString();
+                Program.LogMessage("Finished loading paths");
+            }
+            catch (Exception ex)
+            {
+                Program.LogMessage($"Error in LoadPaths: {ex}");
+                throw;
+            }
         }
 
         protected override void OnSizeChanged(EventArgs e)
         {
             base.OnSizeChanged(e);
-            // Keep column width matched to form width
-            if (listView != null && listView.Columns.Count > 0)
+            if (pathsTextBox != null)
             {
-                listView.Columns[0].Width = -2;
+                pathsTextBox.SelectionStart = 0;
+                pathsTextBox.SelectionLength = 0;
             }
         }
     }

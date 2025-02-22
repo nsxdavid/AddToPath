@@ -14,13 +14,17 @@ namespace AddToPath
         private const string AppName = "Add to PATH";
         private const string MenuName = "Path";
         private static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AddToPath");
-        private static readonly string ExePath = Path.Combine(InstallDir, "AddToPath.exe");
+        private static string ExePath { get; set; }
 
         [STAThread]
         static void Main(string[] args)
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            ExePath = args.Length > 0 && args[0].ToLower() == "--install" 
+                ? Path.Combine(InstallDir, "AddToPath.exe")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AddToPath.exe");
 
             if (args.Length > 0)
             {
@@ -29,7 +33,7 @@ namespace AddToPath
 
                 // If we have multiple arguments and it's a path command, join them
                 string path = null;
-                if (args.Length > 1 && (cmd == "--addtopath" || cmd == "--removefrompath"))
+                if (args.Length > 1 && (cmd == "--addtosystempath" || cmd == "--removefromsystempath" || cmd == "--addtouserpath" || cmd == "--removefromuserpath"))
                 {
                     // Join all arguments after the command into a single path
                     path = string.Join(" ", args.Skip(1));
@@ -43,8 +47,8 @@ namespace AddToPath
 
                 bool needsAdmin = cmd == "--install" || 
                                 cmd == "--uninstall" || 
-                                cmd == "--addtopath" || 
-                                cmd == "--removefrompath";
+                                cmd == "--addtosystempath" || 
+                                cmd == "--removefromsystempath";
 
                 if (needsAdmin && !IsRunningAsAdmin())
                 {
@@ -57,20 +61,41 @@ namespace AddToPath
                     case "--uninstall":
                         UninstallContextMenu();
                         return;
-                    case "--addtopath":
+                    case "--addtouserpath":
                         if (path != null && Directory.Exists(path))
                         {
-                            AddToPath(path);
+                            AddToPath(path, false);
                         }
                         return;
-                    case "--removefrompath":
+                    case "--addtosystempath":
                         if (path != null && Directory.Exists(path))
                         {
-                            RemoveFromPath(path);
+                            AddToPath(path, true);
+                        }
+                        return;
+                    case "--removefromuserpath":
+                        if (path != null && Directory.Exists(path))
+                        {
+                            RemoveFromPath(path, false);
+                        }
+                        return;
+                    case "--removefromsystempath":
+                        if (path != null && Directory.Exists(path))
+                        {
+                            RemoveFromPath(path, true);
                         }
                         return;
                     case "--showpaths":
-                        ShowPaths();
+                        Log($"Showing all paths");
+                        ShowPaths(true, true);
+                        return;
+                    case "--showuserpath":
+                        Log($"Showing user path only");
+                        ShowPaths(true, false);
+                        return;
+                    case "--showsystempath":
+                        Log($"Showing system path only");
+                        ShowPaths(false, true);
                         return;
                     case "--install":
                         InstallContextMenu();
@@ -147,6 +172,19 @@ namespace AddToPath
 
             try
             {
+                // Clean up any existing registry entries first
+                try 
+                {
+                    Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\PathMenu", false);
+                } 
+                catch (Exception) { /* Ignore if key doesn't exist */ }
+
+                try 
+                {
+                    Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\Path", false);
+                } 
+                catch (Exception) { /* Ignore if key doesn't exist */ }
+
                 // Create install directory if it doesn't exist
                 Directory.CreateDirectory(InstallDir);
 
@@ -154,49 +192,107 @@ namespace AddToPath
                 File.Copy(Application.ExecutablePath, ExePath, true);
 
                 // Create main menu entry
-                using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\PathMenu"))
+                using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path"))
                 {
                     key.SetValue("", ""); // Empty default value
-                    key.SetValue("MUIVerb", MenuName);
-                    key.SetValue("ExtendedSubCommandsKey", @"Directory\shell\PathMenu");
+                    key.SetValue("MUIVerb", "Path");
+                    key.SetValue("SubCommands", "AddToPath;RemoveFromPath;ShowPaths"); // Main menu commands
                 }
 
                 // Create Shell container for submenus
-                Registry.ClassesRoot.CreateSubKey(@"Directory\shell\PathMenu\Shell");
+                Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell");
 
                 // Add to PATH submenu
-                using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\PathMenu\Shell\Add"))
+                using (var addKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\AddToPath"))
                 {
-                    key.SetValue("", ""); // Empty default value
-                    key.SetValue("MUIVerb", "Add to PATH");
+                    addKey.SetValue("", ""); // Empty default value
+                    addKey.SetValue("MUIVerb", "Add to PATH");
+                    addKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
 
-                    using (var cmdKey = key.CreateSubKey("command"))
+                    // Add User PATH command
+                    using (var userKey = addKey.CreateSubKey(@"Shell\User"))
                     {
-                        cmdKey.SetValue("", $"\"{ExePath}\" --addtopath \"%1\"");
+                        userKey.SetValue("MUIVerb", "User PATH");
+                        using (var cmdKey = userKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --addtouserpath \"%1\"");
+                        }
+                    }
+
+                    // Add System PATH command
+                    using (var systemKey = addKey.CreateSubKey(@"Shell\System"))
+                    {
+                        systemKey.SetValue("MUIVerb", "System PATH");
+                        using (var cmdKey = systemKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --addtosystempath \"%1\"");
+                        }
                     }
                 }
 
                 // Remove from PATH submenu
-                using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\PathMenu\Shell\Remove"))
+                using (var removeKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\RemoveFromPath"))
                 {
-                    key.SetValue("", ""); // Empty default value
-                    key.SetValue("MUIVerb", "Remove from PATH");
+                    removeKey.SetValue("", ""); // Empty default value
+                    removeKey.SetValue("MUIVerb", "Remove from PATH");
+                    removeKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
 
-                    using (var cmdKey = key.CreateSubKey("command"))
+                    // Remove User PATH command
+                    using (var userKey = removeKey.CreateSubKey(@"Shell\User"))
                     {
-                        cmdKey.SetValue("", $"\"{ExePath}\" --removefrompath \"%1\"");
+                        userKey.SetValue("MUIVerb", "User PATH");
+                        using (var cmdKey = userKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --removefromuserpath \"%1\"");
+                        }
+                    }
+
+                    // Remove System PATH command
+                    using (var systemKey = removeKey.CreateSubKey(@"Shell\System"))
+                    {
+                        systemKey.SetValue("MUIVerb", "System PATH");
+                        using (var cmdKey = systemKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --removefromsystempath \"%1\"");
+                        }
                     }
                 }
 
                 // Show PATHs submenu
-                using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\PathMenu\Shell\Show"))
+                using (var showKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\ShowPaths"))
                 {
-                    key.SetValue("", ""); // Empty default value
-                    key.SetValue("MUIVerb", "Show PATHs");
+                    showKey.SetValue("", ""); // Empty default value
+                    showKey.SetValue("MUIVerb", "Show PATHs");
+                    showKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
 
-                    using (var cmdKey = key.CreateSubKey("command"))
+                    // Show User PATH command
+                    using (var userKey = showKey.CreateSubKey(@"Shell\ShowUser"))
                     {
-                        cmdKey.SetValue("", $"\"{ExePath}\" --showpaths");
+                        userKey.SetValue("MUIVerb", "User PATH");
+                        using (var cmdKey = userKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --showuserpath");
+                        }
+                    }
+
+                    // Show System PATH command
+                    using (var systemKey = showKey.CreateSubKey(@"Shell\ShowSystem"))
+                    {
+                        systemKey.SetValue("MUIVerb", "System PATH");
+                        using (var cmdKey = systemKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --showsystempath");
+                        }
+                    }
+
+                    // Show All PATHs command
+                    using (var allKey = showKey.CreateSubKey(@"Shell\ShowAll"))
+                    {
+                        allKey.SetValue("MUIVerb", "All PATHs");
+                        using (var cmdKey = allKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --showpaths");
+                        }
                     }
                 }
             }
@@ -221,7 +317,7 @@ namespace AddToPath
             try 
             {
                 // Remove registry entries
-                Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\PathMenu", false);
+                Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\Path", false);
 
                 // Delete Program Files installation
                 if (Directory.Exists(InstallDir))
@@ -245,12 +341,13 @@ namespace AddToPath
             }
         }
 
-        private static void LogMessage(string message)
+        public static void LogMessage(string message)
         {
             try
             {
-                string logPath = Path.Combine(Path.GetTempPath(), "AddToPath.log");
-                File.AppendAllText(logPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}\n");
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                var logPath = Path.Combine(Path.GetTempPath(), "AddToPath.log");
+                File.AppendAllText(logPath, $"{timestamp} - {message}\n");
             }
             catch
             {
@@ -258,34 +355,40 @@ namespace AddToPath
             }
         }
 
-        private static void AddToPath(string path)
+        private static void Log(string message)
+        {
+            LogMessage(message);
+        }
+
+        private static void AddToPath(string path, bool isSystem)
         {
             try 
             {
-                var envPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+                EnvironmentVariableTarget target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
+                var envPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
                 var paths = envPath.Split(';').Select(p => p.TrimEnd('\\')).ToList();
                 var normalizedPath = path.TrimEnd('\\');
 
-                LogMessage($"Current PATH: {envPath}");
-                LogMessage($"Adding path: {normalizedPath}");
+                Log($"Current PATH: {envPath}");
+                Log($"Adding path: {normalizedPath}");
 
                 if (!paths.Contains(normalizedPath))
                 {
                     paths.Add(normalizedPath);
                     var newPath = string.Join(";", paths);
-                    LogMessage($"New PATH will be: {newPath}");
+                    Log($"New PATH will be: {newPath}");
 
                     Environment.SetEnvironmentVariable(
                         "PATH",
                         newPath,
-                        EnvironmentVariableTarget.Machine
+                        target
                     );
 
-                    var verifyPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-                    LogMessage($"Verified PATH after set: {verifyPath}");
+                    var verifyPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
+                    Log($"Verified PATH after set: {verifyPath}");
 
                     MessageBox.Show(
-                        $"Added '{path}' to system PATH successfully.",
+                        $"Added '{path}' to {(isSystem ? "system" : "user")} PATH successfully.",
                         "Success",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information
@@ -293,9 +396,9 @@ namespace AddToPath
                 }
                 else
                 {
-                    LogMessage($"Path already exists in: {envPath}");
+                    Log($"Path already exists in: {envPath}");
                     MessageBox.Show(
-                        $"'{path}' is already in the system PATH.",
+                        $"'{path}' is already in the {(isSystem ? "system" : "user")} PATH.",
                         "Already Added",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information
@@ -304,7 +407,7 @@ namespace AddToPath
             }
             catch (Exception ex)
             {
-                LogMessage($"Error in AddToPath: {ex}");
+                Log($"Error in AddToPath: {ex}");
                 MessageBox.Show(
                     $"Error adding to PATH: {ex.Message}",
                     "Error",
@@ -314,9 +417,10 @@ namespace AddToPath
             }
         }
 
-        private static void RemoveFromPath(string path)
+        private static void RemoveFromPath(string path, bool isSystem)
         {
-            var envPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+            EnvironmentVariableTarget target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
+            var envPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
             var paths = envPath.Split(';').Select(p => p.TrimEnd('\\')).ToList();
             var normalizedPath = path.TrimEnd('\\');
 
@@ -326,10 +430,10 @@ namespace AddToPath
                 Environment.SetEnvironmentVariable(
                     "PATH",
                     string.Join(";", paths),
-                    EnvironmentVariableTarget.Machine
+                    target
                 );
                 MessageBox.Show(
-                    $"Removed '{path}' from system PATH successfully.",
+                    $"Removed '{path}' from {(isSystem ? "system" : "user")} PATH successfully.",
                     "Success",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
@@ -338,7 +442,7 @@ namespace AddToPath
             else
             {
                 MessageBox.Show(
-                    $"'{path}' is not in the system PATH.",
+                    $"'{path}' is not in the {(isSystem ? "system" : "user")} PATH.",
                     "Not Found",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
@@ -346,11 +450,21 @@ namespace AddToPath
             }
         }
 
-        private static void ShowPaths()
+        private static void ShowPaths(bool showUser = true, bool showSystem = true)
         {
-            using (var dialog = new PathsDialog())
+            try
             {
-                dialog.ShowDialog();
+                Log($"ShowPaths called with showUser={showUser}, showSystem={showSystem}");
+                using (var dialog = new PathsDialog(showUser, showSystem))
+                {
+                    Log("Created PathsDialog, showing dialog...");
+                    Application.Run(dialog);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Error in ShowPaths: {ex}");
+                MessageBox.Show($"Error showing paths: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
