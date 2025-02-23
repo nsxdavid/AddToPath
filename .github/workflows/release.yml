@@ -1,0 +1,93 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Install GitVersion
+      uses: gittools/actions/gitversion/setup@v0.10.2
+      with:
+        versionSpec: '5.x'
+    
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v0.10.2
+    
+    - name: Build
+      run: |
+        dotnet build -c Release /p:Version=${{ steps.gitversion.outputs.semVer }}
+    
+    - name: Create Release ZIP
+      run: |
+        $version="${{ steps.gitversion.outputs.semVer }}"
+        $zipName="AddToPath-v${version}-win-x64.zip"
+        $buildDir="bin/Release/net472"
+        
+        # Create staging directory
+        New-Item -ItemType Directory -Path staging
+        
+        # Copy required files
+        Copy-Item "$buildDir/AddToPath.exe" staging/
+        Copy-Item "README.md" staging/
+        Copy-Item "LICENSE" staging/
+        
+        # Create ZIP
+        Compress-Archive -Path staging/* -DestinationPath $zipName
+      shell: pwsh
+    
+    - name: Generate Release Notes
+      run: |
+        $version="${{ steps.gitversion.outputs.semVer }}"
+        $notes = @"
+        ## AddToPath v${version}
+
+        ### 🚀 New Features
+        - 
+
+        ### 🔧 Improvements
+        - 
+
+        ### 🐛 Bug Fixes
+        - 
+
+        ### 📝 Installation Instructions
+        1. Download `AddToPath-v${version}-win-x64.zip`
+        2. Extract the ZIP file to your desired location
+        3. Run `AddToPath.exe` - no installation needed
+        4. Note: You may need to approve UAC prompt when the app modifies PATH
+
+        ### 📋 Release Checklist
+        - [ ] Update features list
+        - [ ] Update improvements list
+        - [ ] Update bug fixes list
+        - [ ] Review release notes
+        - [ ] Test downloaded ZIP
+        - [ ] Publish release
+        "@
+        
+        $notes | Out-File release_notes.md -Encoding UTF8
+      shell: pwsh
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: true
+        body_path: release_notes.md
+        files: AddToPath-v${{ steps.gitversion.outputs.semVer }}-win-x64.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

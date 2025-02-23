@@ -1,0 +1,8 @@
+mode: ContinuousDeployment
+tag-prefix: 'v'
+branches:
+  main:
+    regex: ^master$|^main$
+    increment: Patch
+  feature:
+    regex: ^features?[/-]
