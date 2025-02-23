@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
     
     steps:
     - uses: actions/checkout@v3
@@ -35,20 +37,39 @@ jobs:
       run: |
         dotnet restore
         dotnet build --configuration Release --no-restore
-    
+        
     - name: Create Release
       id: create_release
-      uses: softprops/action-gh-release@v1
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        files: |
-          bin/Release/net472/AddToPath.exe
-          bin/Release/net472/AddToPath.exe.config
-        name: Release ${{ steps.get_version.outputs.VERSION }}
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        draft: true
+        prerelease: false
         body: |
           Release ${{ steps.get_version.outputs.VERSION }}
           
           Changes in this release:
           - Please update release notes here
-        draft: true
+          
+    - name: Upload Release Asset - EXE
+      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: bin/Release/net472/AddToPath.exe
+        asset_name: AddToPath.exe
+        asset_content_type: application/octet-stream
+        
+    - name: Upload Release Asset - Config
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: bin/Release/net472/AddToPath.exe.config
+        asset_name: AddToPath.exe.config
+        asset_content_type: application/xml
