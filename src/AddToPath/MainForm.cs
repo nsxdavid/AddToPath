@@ -23,8 +23,8 @@ namespace AddToPath
         {
             // Get version from assembly
             var version = Assembly.GetExecutingAssembly().GetName().Version;
-            Text = "Add to PATH - Windows Context Menu Utility";
-            Size = new Size(520, 340);
+            Text = "AddToPath - Windows PATH Management Tools";
+            Size = new Size(520, 340);  // Back to original size
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
@@ -44,7 +44,7 @@ namespace AddToPath
             // Title
             titleLabel = new Label
             {
-                Text = "Add to PATH Context Menu",
+                Text = "AddToPath",
                 Font = new Font("Segoe UI", 16F, FontStyle.Regular),
                 ForeColor = Color.FromArgb(0, 99, 155),
                 AutoSize = true,
@@ -67,16 +67,13 @@ namespace AddToPath
             descriptionLabel = new Label
             {
                 Location = new Point(0, titleLabel.Bottom + 15),
-                Size = new Size(460, 140),
+                Size = new Size(460, 140),  // Reduce height for shorter text
                 Font = new Font("Segoe UI", 9.75F),
-                Text = "This utility adds a 'Path' submenu to your Windows context menu " +
-                      "when right-clicking on folders.\n\n" +
-                      "After installation, you can right-click any folder to access the following options:\n" +
-                      "• Add to PATH - Add the folder to system PATH\n" +
-                      "• Remove from PATH - Remove the folder from system PATH\n" +
-                      "• Show PATHs - View all current PATH entries\n\n" +
-                      "Note: Installing or uninstalling will require administrator privileges to modify " +
-                      "the registry and system PATH.",
+                Text = "AddToPath provides two ways to manage your Windows PATH environment variable:\n\n" +
+                      "1. Context Menu (GUI)\n" +
+                      "   • Right-click any folder, look for 'Path' menu.\n\n" +
+                      "2. Command Line (CLI)\n" +
+                      "   • Use the 'a2p' command in any terminal\n",
                 TextAlign = ContentAlignment.TopLeft
             };
             contentPanel.Controls.Add(descriptionLabel);
@@ -148,7 +145,7 @@ namespace AddToPath
             bool isInstalled = Program.IsInstalledInProgramFiles();
             
             // Install button styling
-            installButton.Text = isInstalled ? "Repair Installation" : "Install Context Menu";
+            installButton.Text = isInstalled ? "Repair Installation" : "Install Tools";
             installButton.BackColor = Color.FromArgb(0, 120, 215);
             installButton.ForeColor = Color.White;
             
@@ -198,9 +195,11 @@ namespace AddToPath
         private void InstallButton_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show(
-                "This will add the 'Path' menu to your folder context menu.\n\n" +
+                "This will install:\n" +
+                "1. Context menu integration for managing PATH entries\n" +
+                "2. Command-line tool (a2p) for managing PATH from terminal\n\n" +
                 "Administrator rights will be required to continue.",
-                "Confirm Installation",
+                "Install AddToPath Tools",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Information) == DialogResult.OK)
             {
@@ -212,9 +211,11 @@ namespace AddToPath
         private void UninstallButton_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show(
-                "This will remove the 'Path' menu from your folder context menu.\n\n" +
+                "This will remove:\n" +
+                "1. Context menu integration for managing PATH entries\n" +
+                "2. Command-line tool (a2p) from system PATH\n\n" +
                 "Administrator rights will be required to continue.",
-                "Confirm Uninstallation",
+                "Uninstall AddToPath Tools",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Warning) == DialogResult.OK)
             {

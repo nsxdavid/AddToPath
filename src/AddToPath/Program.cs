@@ -224,8 +224,11 @@ namespace AddToPath
                 case "--install":
                     InstallContextMenu();
                     MessageBox.Show(
-                        "Context menu installed successfully!\nYou can now right-click any folder to access PATH options.",
-                        "Success",
+                        "AddToPath GUI and CLI (a2p) tools installed successfully!\n" +
+                        "You can now:\n" +
+                        "1. Use the context menu to manage PATH entries\n" +
+                        "2. Run 'a2p' from any terminal to manage PATH entries",
+                        "Installation Complete",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                     return;
@@ -387,7 +390,7 @@ namespace AddToPath
             }
             
             var result = MessageBox.Show(
-                "Other instances of Add to PATH are running and must be closed to continue.\n\n" +
+                "Other instances of AddToPath GUI and CLI (a2p) are running and must be closed to continue.\n\n" +
                 "Would you like to close them now?",
                 "Close Running Instances",
                 MessageBoxButtons.YesNo,
@@ -427,7 +430,7 @@ namespace AddToPath
                 {
                     MessageBox.Show(
                         "Installation cannot proceed while other instances are running.\n" +
-                        "Please close all instances of Add to PATH and try again.",
+                        "Please close all instances of AddToPath GUI and CLI (a2p) and try again.",
                         "Installation Cancelled",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
@@ -459,8 +462,40 @@ namespace AddToPath
                 // Create install directory if it doesn't exist
                 Directory.CreateDirectory(InstallDir);
 
-                // Copy executable to Program Files
+                // Copy executables to Program Files
                 File.Copy(Application.ExecutablePath, ExePath, true);
+                
+                // Find and copy a2p.exe
+                string a2pSourcePath = Path.Combine(
+                    Path.GetDirectoryName(Application.ExecutablePath),
+                    "a2p.exe");
+                
+                if (!File.Exists(a2pSourcePath))
+                {
+                    // Try the shared bin directory
+                    string binDir = Path.Combine(
+                        Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath)),
+                        "bin",
+                        "Debug");
+                    a2pSourcePath = Path.Combine(binDir, "a2p.exe");
+                }
+
+                if (File.Exists(a2pSourcePath))
+                {
+                    string a2pDestPath = Path.Combine(InstallDir, "a2p.exe");
+                    File.Copy(a2pSourcePath, a2pDestPath, true);
+                }
+                else
+                {
+                    LogMessage("Could not find a2p.exe to install", LogLevel.Warning, "Installation");
+                }
+
+                // Add install directory to system PATH if not already present
+                var systemPaths = GetSystemPaths();
+                if (!systemPaths.Contains(InstallDir, StringComparer.OrdinalIgnoreCase))
+                {
+                    AddToSystemPath(InstallDir);
+                }
 
                 // Create main menu entry
                 using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path"))
@@ -564,7 +599,7 @@ namespace AddToPath
                 {
                     MessageBox.Show(
                         "Uninstallation cannot proceed while other instances are running.\n" +
-                        "Please close all instances of Add to PATH and try again.",
+                        "Please close all instances of AddToPath GUI and CLI (a2p) and try again.",
                         "Uninstallation Cancelled",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
@@ -577,6 +612,16 @@ namespace AddToPath
                 // Remove registry entries
                 Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\Path", false);
 
+                // Remove install directory from system PATH
+                try
+                {
+                    RemoveFromSystemPath(InstallDir);
+                }
+                catch (Exception ex)
+                {
+                    LogMessage("Failed to remove install directory from PATH", LogLevel.Error, "Uninstall", ex);
+                }
+
                 // Delete Program Files installation
                 if (Directory.Exists(InstallDir))
                 {
@@ -584,8 +629,9 @@ namespace AddToPath
                 }
 
                 MessageBox.Show(
-                    "Context menu removed successfully!",
-                    "Success",
+                    "AddToPath GUI and CLI (a2p) tools have been removed.\n" +
+                    "The context menu entries and PATH modifications have been cleaned up.",
+                    "Uninstallation Complete",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }

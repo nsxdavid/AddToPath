@@ -25,7 +25,7 @@ namespace AddToPath
                 this.showSystem = showSystem;
 
                 // Form settings
-                Text = "PATH Variables";
+                Text = "AddToPath - View PATH Variables";
                 Size = new Size(800, 600);
                 StartPosition = FormStartPosition.CenterScreen;
                 MinimizeBox = true;

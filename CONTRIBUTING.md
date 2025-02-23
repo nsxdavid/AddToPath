@@ -21,11 +21,38 @@ dotnet build -c Release
 
 ## Project Structure
 
+### Solution Layout
+```
+AddToPath/
+├── src/                    # Source code directory
+│   ├── AddToPath/         # GUI application project
+│   └── a2p/               # CLI tool project
+├── bin/                   # Shared build output
+│   ├── Debug/            # Debug builds
+│   │   ├── AddToPath.exe # GUI executable
+│   │   └── a2p.exe      # CLI executable
+│   └── Release/          # Release builds
+└── ...
+```
+
+### Build Process
+- Each project builds to its own output directory (`src/*/bin/Debug/net472/`)
+- Post-build events copy executables to the shared `bin` directory
+- Only executables are copied (no dependencies needed - they're embedded)
+- This setup serves multiple purposes:
+  1. During development:
+     - Makes it easy to find and run the latest builds
+     - Ensures the GUI installer can find the CLI tool for installation
+     - Simulates the installed state where both tools are in the same directory
+  2. For releases:
+     - Provides a clean directory with just the executables
+     - Simplifies the release process by having all artifacts in one place
+     - No dependencies to manage - everything is embedded
+
 ### Dependencies
 - **[Costura.Fody](https://github.com/Fody/Costura)**: Embeds all DLLs into the executable at build time
-  - Configured in `FodyWeavers.xml` ([configuration docs](https://github.com/Fody/Costura#configuration-options))
-  - Eliminates need to distribute separate DLLs
-  - Makes the app portable (single-file executable)
+  - Makes both tools completely self-contained
+  - No external dependencies needed - everything is in the exe
   - Currently embeds:
     - `System.Resources.Extensions.dll` (needed for resource handling in SDK-style projects)
     - All referenced .NET Framework assemblies are available on Windows 10+ by default
@@ -60,16 +87,26 @@ dotnet build -c Release
    - README.md
    - LICENSE
 
+### Installation Process
+- The GUI application (`AddToPath.exe`) handles installation for both tools
+- During installation:
+  1. Both executables are copied to `%ProgramFiles%\AddToPath\`
+  2. The install directory is added to system PATH
+  3. Context menu entries are created for the GUI tool
+- The CLI tool (`a2p.exe`) becomes available from any terminal after installation
+
 ### Testing
 - Test on a clean Windows 10+ machine to verify:
   - No missing dependencies
   - UAC elevation works correctly
   - Context menu integration functions
   - PATH modifications succeed
+  - CLI tool is accessible from PATH
 
 ## Best Practices
 1. Always build and test in Release configuration before committing
-2. Verify the executable works standalone before pushing a release tag
-3. Keep the distribution clean - all necessary code should be embedded in the exe
+2. Verify both executables work standalone before pushing a release tag
+3. Keep the distribution clean - all necessary code should be embedded in the exes
 4. Test PATH modifications on both user and system level
 5. Remember to run with admin rights when testing system PATH changes
+6. Test both GUI and CLI functionality after making changes
