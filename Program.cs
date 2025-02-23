@@ -162,12 +162,69 @@ namespace AddToPath
             }
         }
 
+        private static bool AreOtherInstancesRunning()
+        {
+            var currentProcess = Process.GetCurrentProcess();
+            var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(ExePath));
+            return processes.Any(p => p.Id != currentProcess.Id);
+        }
+
+        private static bool KillOtherInstances()
+        {
+            var currentProcess = Process.GetCurrentProcess();
+            var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(ExePath));
+            var otherProcesses = processes.Where(p => p.Id != currentProcess.Id).ToList();
+            
+            if (!otherProcesses.Any())
+                return true;
+
+            var result = MessageBox.Show(
+                "Other instances of Add to PATH are running and must be closed to continue.\n\n" +
+                "Would you like to close them now?",
+                "Close Running Instances",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+                return false;
+
+            foreach (var process in otherProcesses)
+            {
+                try
+                {
+                    process.Kill();
+                    process.WaitForExit(5000); // Wait up to 5 seconds for each process
+                }
+                catch (Exception ex)
+                {
+                    LogMessage($"Failed to kill process {process.Id}: {ex.Message}");
+                }
+            }
+
+            // Double check all processes were killed
+            return !AreOtherInstancesRunning();
+        }
+
         public static void InstallContextMenu()
         {
             if (!IsRunningAsAdmin())
             {
                 RestartAsAdmin(new[] { "--install" });
                 return;
+            }
+
+            if (AreOtherInstancesRunning())
+            {
+                if (!KillOtherInstances())
+                {
+                    MessageBox.Show(
+                        "Installation cannot proceed while other instances are running.\n" +
+                        "Please close all instances of Add to PATH and try again.",
+                        "Installation Cancelled",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
             try
@@ -312,6 +369,20 @@ namespace AddToPath
             {
                 RestartAsAdmin(new[] { "--uninstall" });
                 return;
+            }
+
+            if (AreOtherInstancesRunning())
+            {
+                if (!KillOtherInstances())
+                {
+                    MessageBox.Show(
+                        "Uninstallation cannot proceed while other instances are running.\n" +
+                        "Please close all instances of Add to PATH and try again.",
+                        "Uninstallation Cancelled",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
             }
 
             try 
