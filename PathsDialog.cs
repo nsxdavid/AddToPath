@@ -18,7 +18,6 @@ namespace AddToPath
         {
             try
             {
-                Program.LogMessage($"Initializing PathsDialog with showUser={showUser}, showSystem={showSystem}");
                 this.showUser = showUser;
                 this.showSystem = showSystem;
 
@@ -97,8 +96,6 @@ namespace AddToPath
                 contentPanel.Controls.Add(borderPanel);
                 mainContainer.Controls.Add(contentPanel, 0, 1);
 
-                Program.LogMessage("Created and configured PathsDialog window");
-
                 LoadPaths();
             }
             catch (Exception ex)
@@ -112,13 +109,11 @@ namespace AddToPath
         {
             try
             {
-                Program.LogMessage("Loading paths...");
                 var sb = new StringBuilder();
 
                 if (showUser)
                 {
                     var userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
-                    Program.LogMessage($"User PATH: {userPath}");
                     sb.AppendLine("User PATH:");
                     sb.AppendLine("----------");
                     foreach (var path in userPath.Split(';').Where(p => !string.IsNullOrWhiteSpace(p)))
@@ -131,7 +126,6 @@ namespace AddToPath
                 if (showSystem)
                 {
                     var systemPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
-                    Program.LogMessage($"System PATH: {systemPath}");
                     sb.AppendLine("System PATH:");
                     sb.AppendLine("------------");
                     foreach (var path in systemPath.Split(';').Where(p => !string.IsNullOrWhiteSpace(p)))
@@ -141,7 +135,6 @@ namespace AddToPath
                 }
 
                 pathsTextBox.Text = sb.ToString();
-                Program.LogMessage("Finished loading paths");
             }
             catch (Exception ex)
             {

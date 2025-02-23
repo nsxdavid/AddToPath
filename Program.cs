@@ -6,15 +6,109 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Security.Principal;
+using System.Text;
 
 namespace AddToPath
 {
+    internal enum LogLevel
+    {
+        Error,
+        Warning,
+        Info,
+        Debug
+    }
+
+    internal static class Logger
+    {
+        private static readonly string LogDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AddToPath", "Logs");
+        
+        private const int DAYS_TO_KEEP_LOGS = 7;
+
+        static Logger()
+        {
+            try
+            {
+                if (!Directory.Exists(LogDirectory))
+                {
+                    Directory.CreateDirectory(LogDirectory);
+                }
+                CleanupOldLogs();
+            }
+            catch
+            {
+                // Ignore initialization errors
+            }
+        }
+
+        public static void Log(LogLevel level, string category, string message, Exception ex = null)
+        {
+            try
+            {
+                var logFile = Path.Combine(LogDirectory, $"AddToPath_{DateTime.Now:yyyyMMdd}.log");
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                var logMessage = $"{timestamp}|{level}|{category}|{message}";
+                
+                if (ex != null)
+                {
+                    logMessage += $"\nException: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}";
+                }
+
+                logMessage += "\n";
+                
+                File.AppendAllText(logFile, logMessage);
+            }
+            catch
+            {
+                // Ignore logging errors
+            }
+        }
+
+        private static void CleanupOldLogs()
+        {
+            try
+            {
+                var cutoff = DateTime.Now.AddDays(-DAYS_TO_KEEP_LOGS);
+                var oldLogs = Directory.GetFiles(LogDirectory, "AddToPath_*.log")
+                    .Select(f => new FileInfo(f))
+                    .Where(f => f.LastWriteTime < cutoff);
+
+                foreach (var log in oldLogs)
+                {
+                    try
+                    {
+                        log.Delete();
+                    }
+                    catch
+                    {
+                        // Ignore individual file deletion errors
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
     internal static class Program
     {
         private const string AppName = "Add to PATH";
         private const string MenuName = "Path";
         private static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AddToPath");
         private static string ExePath { get; set; }
+
+        public static void LogMessage(string message, LogLevel level = LogLevel.Info, string category = "General", Exception ex = null)
+        {
+            Logger.Log(level, category, message, ex);
+        }
+
+        private static void Log(string message)
+        {
+            MessageBox.Show(message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
 
         [STAThread]
         static void Main(string[] args)
@@ -29,7 +123,7 @@ namespace AddToPath
             if (args.Length > 0)
             {
                 string cmd = args[0].ToLower();
-                LogMessage($"Command received: {cmd} with {args.Length} arguments");
+                LogMessage($"Command received: {cmd} with {args.Length} arguments", LogLevel.Info, "Program");
 
                 // If we have multiple arguments and it's a path command, join them
                 string path = null;
@@ -37,12 +131,12 @@ namespace AddToPath
                 {
                     // Join all arguments after the command into a single path
                     path = string.Join(" ", args.Skip(1));
-                    LogMessage($"Reconstructed path: {path}");
+                    LogMessage($"Reconstructed path: {path}", LogLevel.Info, "Program");
                 }
                 else if (args.Length > 1)
                 {
                     path = args[1];
-                    LogMessage($"Argument 1: {path}");
+                    LogMessage($"Argument 1: {path}", LogLevel.Info, "Program");
                 }
 
                 bool needsAdmin = cmd == "--install" || 
@@ -86,7 +180,7 @@ namespace AddToPath
                         }
                         return;
                     case "--showpaths":
-                        Log($"Showing all paths");
+                        LogMessage("Showing all paths", LogLevel.Info, "Program");
                         ShowPaths(true, true);
                         return;
                     case "--install":
@@ -144,8 +238,9 @@ namespace AddToPath
                 Process.Start(proc);
                 Application.Exit();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                LogMessage("Failed to restart as admin", LogLevel.Error, "Program", ex);
                 MessageBox.Show(
                     "Administrator rights are required to modify the system PATH and registry.",
                     "Admin Rights Required",
@@ -189,7 +284,7 @@ namespace AddToPath
                 }
                 catch (Exception ex)
                 {
-                    LogMessage($"Failed to kill process {process.Id}: {ex.Message}");
+                    LogMessage($"Failed to kill process {process.Id}", LogLevel.Error, "Program", ex);
                 }
             }
 
@@ -226,13 +321,19 @@ namespace AddToPath
                 {
                     Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\PathMenu", false);
                 } 
-                catch (Exception) { /* Ignore if key doesn't exist */ }
+                catch (Exception ex)
+                {
+                    LogMessage("Failed to delete PathMenu registry key", LogLevel.Error, "Registry", ex);
+                }
 
                 try 
                 {
                     Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\Path", false);
                 } 
-                catch (Exception) { /* Ignore if key doesn't exist */ }
+                catch (Exception ex)
+                {
+                    LogMessage("Failed to delete Path registry key", LogLevel.Error, "Registry", ex);
+                }
 
                 // Create install directory if it doesn't exist
                 Directory.CreateDirectory(InstallDir);
@@ -319,6 +420,7 @@ namespace AddToPath
             }
             catch (Exception ex)
             {
+                LogMessage("Failed to install context menu", LogLevel.Error, "Registry", ex);
                 MessageBox.Show(
                     $"Error installing context menu: {ex.Message}",
                     "Error",
@@ -368,6 +470,7 @@ namespace AddToPath
             }
             catch (Exception ex)
             {
+                LogMessage("Failed to uninstall context menu", LogLevel.Error, "Registry", ex);
                 MessageBox.Show(
                     $"Error uninstalling context menu: {ex.Message}",
                     "Error",
@@ -376,42 +479,23 @@ namespace AddToPath
             }
         }
 
-        public static void LogMessage(string message)
-        {
-            try
-            {
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                var logPath = Path.Combine(Path.GetTempPath(), "AddToPath.log");
-                File.AppendAllText(logPath, $"{timestamp} - {message}\n");
-            }
-            catch
-            {
-                // Ignore logging errors
-            }
-        }
-
-        private static void Log(string message)
-        {
-            LogMessage(message);
-        }
-
         private static void AddToPath(string path, bool isSystem)
         {
             try 
             {
-                EnvironmentVariableTarget target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
+                var target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
                 var envPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
                 var paths = envPath.Split(';').Select(p => p.TrimEnd('\\')).ToList();
                 var normalizedPath = path.TrimEnd('\\');
 
-                Log($"Current PATH: {envPath}");
-                Log($"Adding path: {normalizedPath}");
+                LogMessage($"Current PATH value: {envPath}", LogLevel.Debug, "PathOperation");
+                LogMessage($"Attempting to add: {normalizedPath}", LogLevel.Info, "PathOperation");
 
                 if (!paths.Contains(normalizedPath))
                 {
                     paths.Add(normalizedPath);
                     var newPath = string.Join(";", paths);
-                    Log($"New PATH will be: {newPath}");
+                    LogMessage($"Setting new PATH value: {newPath}", LogLevel.Debug, "PathOperation");
 
                     Environment.SetEnvironmentVariable(
                         "PATH",
@@ -420,35 +504,33 @@ namespace AddToPath
                     );
 
                     var verifyPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
-                    Log($"Verified PATH after set: {verifyPath}");
+                    LogMessage($"Successfully modified {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
+                    LogMessage($"Verified new PATH value: {verifyPath}", LogLevel.Debug, "PathOperation");
 
                     MessageBox.Show(
                         $"Added '{path}' to {(isSystem ? "system" : "user")} PATH successfully.",
                         "Success",
                         MessageBoxButtons.OK,
-                        MessageBoxIcon.Information
-                    );
+                        MessageBoxIcon.Information);
                 }
                 else
                 {
-                    Log($"Path already exists in: {envPath}");
+                    LogMessage($"Path already exists: {normalizedPath}", LogLevel.Warning, "PathOperation");
                     MessageBox.Show(
                         $"'{path}' is already in the {(isSystem ? "system" : "user")} PATH.",
                         "Already Added",
                         MessageBoxButtons.OK,
-                        MessageBoxIcon.Information
-                    );
+                        MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
             {
-                Log($"Error in AddToPath: {ex}");
+                LogMessage("Failed to modify PATH", LogLevel.Error, "PathOperation", ex);
                 MessageBox.Show(
                     $"Error adding to PATH: {ex.Message}",
                     "Error",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
+                    MessageBoxIcon.Error);
             }
         }
 
@@ -471,8 +553,7 @@ namespace AddToPath
                     $"Removed '{path}' from {(isSystem ? "system" : "user")} PATH successfully.",
                     "Success",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
+                    MessageBoxIcon.Information);
             }
             else
             {
@@ -480,8 +561,7 @@ namespace AddToPath
                     $"'{path}' is not in the {(isSystem ? "system" : "user")} PATH.",
                     "Not Found",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
+                    MessageBoxIcon.Information);
             }
         }
 
@@ -489,16 +569,16 @@ namespace AddToPath
         {
             try
             {
-                Log($"ShowPaths called with showUser={showUser}, showSystem={showSystem}");
+                LogMessage($"ShowPaths called with showUser={showUser}, showSystem={showSystem}", LogLevel.Info, "Program");
                 using (var dialog = new PathsDialog(showUser, showSystem))
                 {
-                    Log("Created PathsDialog, showing dialog...");
+                    LogMessage("Created PathsDialog, showing dialog...", LogLevel.Info, "Program");
                     Application.Run(dialog);
                 }
             }
             catch (Exception ex)
             {
-                Log($"Error in ShowPaths: {ex}");
+                LogMessage("Failed to show paths", LogLevel.Error, "Program", ex);
                 MessageBox.Show($"Error showing paths: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
