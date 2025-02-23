@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -56,22 +59,22 @@ jobs:
         $notes = @"
         ## AddToPath v${version}
 
-        ### 🚀 New Features
+        ### New Features
         - 
 
-        ### 🔧 Improvements
+        ### Improvements
         - 
 
-        ### 🐛 Bug Fixes
+        ### Bug Fixes
         - 
 
-        ### 📝 Installation Instructions
+        ### Installation Instructions
         1. Download `AddToPath-v${version}-win-x64.zip`
         2. Extract the ZIP file to your desired location
         3. Run `AddToPath.exe` - no installation needed
         4. Note: You may need to approve UAC prompt when the app modifies PATH
 
-        ### 📋 Release Checklist
+        ### Release Checklist
         - [ ] Update features list
         - [ ] Update improvements list
         - [ ] Update bug fixes list
