@@ -25,6 +25,7 @@ namespace AddToPath
             BackColor = Color.White;
             Font = new Font("Segoe UI", 9F);
             Padding = new Padding(20);
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
             // Main content panel
             contentPanel = new Panel

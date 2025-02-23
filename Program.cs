@@ -8,9 +8,19 @@ using System.Collections.Generic;
 using System.Security.Principal;
 using System.Text;
 using System.Management;
+using System.Runtime.InteropServices;
+using System.Drawing;
 
 namespace AddToPath
 {
+    internal static class NativeMethods
+    {
+        public const int WM_SETICON = 0x0080;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+    }
+
     internal enum LogLevel
     {
         Error,
@@ -136,87 +146,86 @@ namespace AddToPath
         }
 
         [STAThread]
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            ExePath = args.Length > 0 && args[0].ToLower() == "--install" 
-                ? Path.Combine(InstallDir, "AddToPath.exe")
-                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AddToPath.exe");
-
-            if (args.Length > 0)
+            if (args.Length == 0)
             {
-                string cmd = args[0].ToLower();
-                LogMessage($"Command received: {cmd} with {args.Length} arguments", LogLevel.Info, "Program");
+                Application.Run(new MainForm());
+                return;
+            }
 
-                // If we have multiple arguments and it's a path command, join them
-                string path = null;
-                if (args.Length > 1 && (cmd == "--addtosystempath" || cmd == "--removefromsystempath" || cmd == "--addtouserpath" || cmd == "--removefromuserpath"))
-                {
-                    // Join all arguments after the command into a single path
-                    path = string.Join(" ", args.Skip(1));
-                    LogMessage($"Reconstructed path: {path}", LogLevel.Info, "Program");
-                }
-                else if (args.Length > 1)
-                {
-                    path = args[1];
-                    LogMessage($"Argument 1: {path}", LogLevel.Info, "Program");
-                }
+            string cmd = args[0].ToLower();
+            LogMessage($"Command received: {cmd} with {args.Length} arguments", LogLevel.Info, "Program");
 
-                bool needsAdmin = cmd == "--install" || 
-                                cmd == "--uninstall" || 
-                                cmd == "--addtosystempath" || 
-                                cmd == "--removefromsystempath";
+            // If we have multiple arguments and it's a path command, join them
+            string path = null;
+            if (args.Length > 1 && (cmd == "--addtosystempath" || cmd == "--removefromsystempath" || cmd == "--addtouserpath" || cmd == "--removefromuserpath"))
+            {
+                // Join all arguments after the command into a single path
+                path = string.Join(" ", args.Skip(1));
+                LogMessage($"Reconstructed path: {path}", LogLevel.Info, "Program");
+            }
+            else if (args.Length > 1)
+            {
+                path = args[1];
+                LogMessage($"Argument 1: {path}", LogLevel.Info, "Program");
+            }
 
-                if (needsAdmin && !IsRunningAsAdmin())
-                {
-                    RestartAsAdmin(args);
+            bool needsAdmin = cmd == "--install" || 
+                            cmd == "--uninstall" || 
+                            cmd == "--addtosystempath" || 
+                            cmd == "--removefromsystempath";
+
+            if (needsAdmin && !IsRunningAsAdmin())
+            {
+                RestartAsAdmin(args);
+                return;
+            }
+
+            switch (cmd)
+            {
+                case "--uninstall":
+                    UninstallContextMenu();
                     return;
-                }
-
-                switch (cmd)
-                {
-                    case "--uninstall":
-                        UninstallContextMenu();
-                        return;
-                    case "--addtouserpath":
-                        if (path != null && Directory.Exists(path))
-                        {
-                            AddToPath(path, false);
-                        }
-                        return;
-                    case "--addtosystempath":
-                        if (path != null && Directory.Exists(path))
-                        {
-                            AddToPath(path, true);
-                        }
-                        return;
-                    case "--removefromuserpath":
-                        if (path != null && Directory.Exists(path))
-                        {
-                            RemoveFromPath(path, false);
-                        }
-                        return;
-                    case "--removefromsystempath":
-                        if (path != null && Directory.Exists(path))
-                        {
-                            RemoveFromPath(path, true);
-                        }
-                        return;
-                    case "--showpaths":
-                        LogMessage("Showing all paths", LogLevel.Info, "Program");
-                        ShowPaths(true, true);
-                        return;
-                    case "--install":
-                        InstallContextMenu();
-                        MessageBox.Show(
-                            "Context menu installed successfully!\nYou can now right-click any folder to access PATH options.",
-                            "Success",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Information);
-                        return;
-                }
+                case "--addtouserpath":
+                    if (path != null && Directory.Exists(path))
+                    {
+                        AddToPath(path, false);
+                    }
+                    return;
+                case "--addtosystempath":
+                    if (path != null && Directory.Exists(path))
+                    {
+                        AddToPath(path, true);
+                    }
+                    return;
+                case "--removefromuserpath":
+                    if (path != null && Directory.Exists(path))
+                    {
+                        RemoveFromPath(path, false);
+                    }
+                    return;
+                case "--removefromsystempath":
+                    if (path != null && Directory.Exists(path))
+                    {
+                        RemoveFromPath(path, true);
+                    }
+                    return;
+                case "--showpaths":
+                    LogMessage("Showing all paths", LogLevel.Info, "Program");
+                    ShowPaths(true, true);
+                    return;
+                case "--install":
+                    InstallContextMenu();
+                    MessageBox.Show(
+                        "Context menu installed successfully!\nYou can now right-click any folder to access PATH options.",
+                        "Success",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
             }
 
             if (!IsInstalledInProgramFiles())

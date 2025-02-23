@@ -29,6 +29,7 @@ namespace AddToPath
                 MaximizeBox = true;
                 FormBorderStyle = FormBorderStyle.Sizable;
                 BackColor = Color.White;
+                Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
                 // Main container
                 var mainContainer = new TableLayoutPanel
