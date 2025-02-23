@@ -21,8 +21,10 @@ jobs:
     
     - name: Extract version from tag
       id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
       shell: bash
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
     
     - name: Update version in project
       run: |
@@ -39,8 +41,8 @@ jobs:
         dotnet build --configuration Release --no-restore
         
     - name: Create Release
+      uses: actions/create-release@latest
       id: create_release
-      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -55,7 +57,7 @@ jobs:
           - Please update release notes here
           
     - name: Upload Release Asset - EXE
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@latest
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -65,7 +67,7 @@ jobs:
         asset_content_type: application/octet-stream
         
     - name: Upload Release Asset - Config
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@latest
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
