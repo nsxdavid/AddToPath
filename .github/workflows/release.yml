@@ -40,38 +40,17 @@ jobs:
         dotnet restore
         dotnet build --configuration Release --no-restore
         
-    - name: Create Release
-      uses: actions/create-release@latest
-      id: create_release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Release
+      uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
         draft: true
         prerelease: false
+        name: Release ${{ steps.get_version.outputs.VERSION }}
         body: |
           Release ${{ steps.get_version.outputs.VERSION }}
           
           Changes in this release:
           - Please update release notes here
-          
-    - name: Upload Release Asset - EXE
-      uses: actions/upload-release-asset@latest
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: bin/Release/net472/AddToPath.exe
-        asset_name: AddToPath.exe
-        asset_content_type: application/octet-stream
-        
-    - name: Upload Release Asset - Config
-      uses: actions/upload-release-asset@latest
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: bin/Release/net472/AddToPath.exe.config
-        asset_name: AddToPath.exe.config
-        asset_content_type: application/xml
+        files: |
+          bin/Release/net472/AddToPath.exe
+          bin/Release/net472/AddToPath.exe.config
