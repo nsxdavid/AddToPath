@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '7.0.x'
+    
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Update version in project
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $csproj = "AddToPath.csproj"
+        $xml = [xml](Get-Content $csproj)
+        $xml.Project.PropertyGroup.Version = $version
+        $xml.Save($csproj)
+      shell: pwsh
+    
+    - name: Build
+      run: |
+        dotnet restore
+        dotnet build --configuration Release --no-restore
+    
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          bin/Release/net472/AddToPath.exe
+          bin/Release/net472/AddToPath.exe.config
+        name: Release ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          Release ${{ steps.get_version.outputs.VERSION }}
+          
+          Changes in this release:
+          - Please update release notes here
+        draft: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
