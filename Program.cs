@@ -133,7 +133,7 @@ namespace AddToPath
         private const string AppName = "Add to PATH";
         private const string MenuName = "Path";
         private static readonly string InstallDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AddToPath");
-        private static string ExePath { get; set; }
+        private static string ExePath => Path.Combine(InstallDir, "AddToPath.exe");
 
         public static void LogMessage(string message, LogLevel level = LogLevel.Info, string category = "General", Exception ex = null)
         {
@@ -240,7 +240,41 @@ namespace AddToPath
 
         public static bool IsInstalledInProgramFiles()
         {
-            return File.Exists(ExePath);
+            try
+            {
+                // Check if executable exists in Program Files
+                if (!File.Exists(ExePath))
+                {
+                    LogMessage("Executable not found in Program Files", LogLevel.Debug, "Installation");
+                    return false;
+                }
+
+                // Check if registry keys exist
+                using (var key = Registry.ClassesRoot.OpenSubKey(@"Directory\shell\Path"))
+                {
+                    if (key == null)
+                    {
+                        LogMessage("Registry key not found", LogLevel.Debug, "Installation");
+                        return false;
+                    }
+
+                    // Verify the key has our expected structure
+                    var subCommands = key.GetValue("SubCommands") as string;
+                    if (string.IsNullOrEmpty(subCommands) || !subCommands.Contains("AddToPath"))
+                    {
+                        LogMessage("Registry key missing expected structure", LogLevel.Debug, "Installation");
+                        return false;
+                    }
+                }
+
+                LogMessage("Installation detected successfully", LogLevel.Debug, "Installation");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogMessage("Error checking installation status", LogLevel.Error, "Installation", ex);
+                return false;
+            }
         }
 
         public static bool IsRunningAsAdmin()
