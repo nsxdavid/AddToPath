@@ -24,4 +24,13 @@
     <Content Include="Images\AddToPath.png" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Images\AddToPath.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Images\AddToPath.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

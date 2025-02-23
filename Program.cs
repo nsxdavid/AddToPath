@@ -649,7 +649,7 @@ namespace AddToPath
             }
         }
 
-        private static void ShowPaths(bool showUser = true, bool showSystem = true)
+        public static void ShowPaths(bool showUser = true, bool showSystem = true)
         {
             try
             {
