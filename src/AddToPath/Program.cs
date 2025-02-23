@@ -22,6 +22,9 @@ namespace AddToPath
         public const int HWND_BROADCAST = 0xFFFF;
         public const int WM_SETTINGCHANGE = 0x001A;
         public const uint SMTO_ABORTIFHUNG = 0x0002;
+        public const int SW_RESTORE = 9;
+        public const int WM_APP = 0x8000;
+        public const int WM_REFRESH_PATHS = WM_APP + 1;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
@@ -35,6 +38,12 @@ namespace AddToPath
             uint fuFlags,
             uint uTimeout,
             out UIntPtr lpdwResult);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 
     public enum LogLevel
@@ -769,10 +778,12 @@ namespace AddToPath
             try
             {
                 LogMessage($"ShowPaths called with showUser={showUser}, showSystem={showSystem}", LogLevel.Info, "Program");
-                using (var dialog = new PathsDialog(showUser, showSystem))
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                
+                if (!PathsDialog.ShowPathsDialog(showUser, showSystem))
                 {
-                    LogMessage("Created PathsDialog, showing dialog...", LogLevel.Info, "Program");
-                    Application.Run(dialog);
+                    LogMessage("Existing paths window found and activated", LogLevel.Info, "Program");
                 }
             }
             catch (Exception ex)

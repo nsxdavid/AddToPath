@@ -231,9 +231,14 @@ namespace AddToPath
 
         private void ShowPathsButton_Click(object sender, EventArgs e)
         {
-            using (var dialog = new PathsDialog())
+            try
             {
-                dialog.ShowDialog();
+                PathsDialog.ShowPathsDialog();
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(LogLevel.Error, "MainForm", "Error showing paths dialog", ex);
+                MessageBox.Show(this, "Failed to open paths window: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
