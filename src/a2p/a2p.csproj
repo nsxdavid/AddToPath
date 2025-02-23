@@ -9,4 +9,12 @@
     <ProjectReference Include="..\AddToPath\AddToPath.csproj" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <PropertyGroup>
+      <SharedBinDir>$(SolutionDir)bin\$(Configuration)</SharedBinDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(SharedBinDir)" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).exe" DestinationFolder="$(SharedBinDir)" />
+  </Target>
+
 </Project>

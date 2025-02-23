@@ -40,4 +40,12 @@
     <EmbeddedResource Include="Images\AddToPath.ico" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <PropertyGroup>
+      <SharedBinDir>$(SolutionDir)bin\$(Configuration)</SharedBinDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(SharedBinDir)" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).exe" DestinationFolder="$(SharedBinDir)" />
+  </Target>
+
 </Project>
