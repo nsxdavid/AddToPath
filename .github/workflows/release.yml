@@ -3,7 +3,7 @@ name: Create Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -18,44 +18,32 @@ jobs:
         fetch-depth: 0
     
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
-    
-    - name: Install GitVersion
-      uses: gittools/actions/gitversion/setup@v0.10.2
-      with:
-        versionSpec: '5.x'
-    
-    - name: Determine Version
-      id: gitversion
-      uses: gittools/actions/gitversion/execute@v0.10.2
-    
-    - name: Build
-      run: |
-        dotnet build -c Release /p:Version=${{ steps.gitversion.outputs.semVer }}
-    
-    - name: Create Release ZIP
-      run: |
-        $version="${{ steps.gitversion.outputs.semVer }}"
-        $zipName="AddToPath-v${version}-win-x64.zip"
-        $buildDir="bin/Release/net472"
-        
-        # Create staging directory
-        New-Item -ItemType Directory -Path staging
-        
-        # Copy required files
-        Copy-Item "$buildDir/AddToPath.exe" staging/
-        Copy-Item "README.md" staging/
-        Copy-Item "LICENSE" staging/
-        
-        # Create ZIP
-        Compress-Archive -Path staging/* -DestinationPath $zipName
+        dotnet-version: 8.0.x
+
+    - name: Get Version
+      id: get_version
       shell: pwsh
-    
-    - name: Generate Release Notes
       run: |
-        $version="${{ steps.gitversion.outputs.semVer }}"
+        $version = "${{ github.ref_name }}" -replace '^v',''
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+
+    - name: Build
+      run: dotnet build -c Release /p:Version=${{ steps.get_version.outputs.version }}
+
+    - name: Create Release ZIP
+      shell: pwsh
+      run: |
+        $version = "${{ steps.get_version.outputs.version }}"
+        $zipName = "AddToPath-v${version}-win-x64.zip"
+        Compress-Archive -Path "AddToPath\bin\Release\net472\*" -DestinationPath $zipName -Force
+
+    - name: Generate Release Notes
+      id: release_notes
+      shell: pwsh
+      run: |
+        $version = "${{ steps.get_version.outputs.version }}"
         $notes = @"
         ## AddToPath v${version}
 
@@ -78,19 +66,15 @@ jobs:
         - [ ] Update features list
         - [ ] Update improvements list
         - [ ] Update bug fixes list
-        - [ ] Review release notes
-        - [ ] Test downloaded ZIP
-        - [ ] Publish release
         "@
-        
+
         $notes | Out-File release_notes.md -Encoding UTF8
-      shell: pwsh
-    
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         draft: true
         body_path: release_notes.md
-        files: AddToPath-v${{ steps.gitversion.outputs.semVer }}-win-x64.zip
+        files: AddToPath-v${{ steps.get_version.outputs.version }}-win-x64.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
