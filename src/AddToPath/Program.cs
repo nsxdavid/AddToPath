@@ -453,62 +453,23 @@ namespace AddToPath
 
             try
             {
-                // Clean up any existing registry entries first
-                try 
+                if (!Directory.Exists(InstallDir))
                 {
-                    Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\PathMenu", false);
-                } 
-                catch (Exception ex)
-                {
-                    LogMessage("Failed to delete PathMenu registry key", LogLevel.Error, "Registry", ex);
+                    Directory.CreateDirectory(InstallDir);
                 }
 
-                try 
-                {
-                    Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\Path", false);
-                } 
-                catch (Exception ex)
-                {
-                    LogMessage("Failed to delete Path registry key", LogLevel.Error, "Registry", ex);
-                }
-
-                // Create install directory if it doesn't exist
-                Directory.CreateDirectory(InstallDir);
-
-                // Copy executables to Program Files
                 File.Copy(Application.ExecutablePath, ExePath, true);
-                
-                // Find and copy a2p.exe
-                string a2pSourcePath = Path.Combine(
-                    Path.GetDirectoryName(Application.ExecutablePath),
-                    "a2p.exe");
-                
-                if (!File.Exists(a2pSourcePath))
-                {
-                    // Try the shared bin directory
-                    string binDir = Path.Combine(
-                        Path.GetDirectoryName(Path.GetDirectoryName(Application.ExecutablePath)),
-                        "bin",
-                        "Debug");
-                    a2pSourcePath = Path.Combine(binDir, "a2p.exe");
-                }
+                File.Copy(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "a2p.exe"), 
+                    Path.Combine(InstallDir, "a2p.exe"), true);
 
-                if (File.Exists(a2pSourcePath))
-                {
-                    string a2pDestPath = Path.Combine(InstallDir, "a2p.exe");
-                    File.Copy(a2pSourcePath, a2pDestPath, true);
-                }
-                else
-                {
-                    LogMessage("Could not find a2p.exe to install", LogLevel.Warning, "Installation");
-                }
+                // Create helper scripts for refreshing PATH
+                File.WriteAllText(
+                    Path.Combine(InstallDir, "updatepath.ps1"),
+                    "$env:Path = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")");
 
-                // Add install directory to system PATH if not already present
-                var systemPaths = GetSystemPaths();
-                if (!systemPaths.Contains(InstallDir, StringComparer.OrdinalIgnoreCase))
-                {
-                    AddToSystemPath(InstallDir);
-                }
+                File.WriteAllText(
+                    Path.Combine(InstallDir, "updatepath.bat"),
+                    "@echo off\nfor /f \"tokens=2*\" %%a in ('reg query \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\" /v Path') do set SYSPATH=%%b\nfor /f \"tokens=2*\" %%a in ('reg query \"HKCU\\Environment\" /v Path') do set USERPATH=%%b\nset PATH=%SYSPATH%;%USERPATH%");
 
                 // Create main menu entry
                 using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path"))
@@ -623,39 +584,45 @@ namespace AddToPath
             try 
             {
                 // Remove registry entries
-                Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\Path", false);
+                Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\" + MenuName, false);
+                Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\Background\shell\" + MenuName, false);
 
-                // Remove install directory from system PATH
-                try
-                {
-                    RemoveFromSystemPath(InstallDir);
-                }
-                catch (Exception ex)
-                {
-                    LogMessage("Failed to remove install directory from PATH", LogLevel.Error, "Uninstall", ex);
-                }
+                // Remove from PATH
+                RemoveFromPath(InstallDir, true);
 
-                // Delete Program Files installation
+                // Delete installed files
                 if (Directory.Exists(InstallDir))
                 {
-                    Directory.Delete(InstallDir, true);
+                    foreach (var file in new[] { 
+                        "AddToPath.exe", "a2p.exe", 
+                        "updatepath.ps1", "updatepath.bat"
+                    })
+                    {
+                        try
+                        {
+                            File.Delete(Path.Combine(InstallDir, file));
+                        }
+                        catch
+                        {
+                            // Ignore individual file deletion errors
+                        }
+                    }
+                    try
+                    {
+                        Directory.Delete(InstallDir);
+                    }
+                    catch
+                    {
+                        // Ignore directory deletion error
+                    }
                 }
 
-                MessageBox.Show(
-                    "AddToPath GUI and CLI (a2p) tools have been removed.\n" +
-                    "The context menu entries and PATH modifications have been cleaned up.",
-                    "Uninstallation Complete",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                Log("Uninstalled successfully");
             }
             catch (Exception ex)
             {
-                LogMessage("Failed to uninstall context menu", LogLevel.Error, "Registry", ex);
-                MessageBox.Show(
-                    $"Error uninstalling context menu: {ex.Message}",
-                    "Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                LogMessage("Failed to uninstall", LogLevel.Error, "Uninstall", ex);
+                MessageBox.Show($"Failed to uninstall: {ex.Message}", AppName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -704,16 +671,30 @@ namespace AddToPath
 
                 if (paths.Contains(path, StringComparer.OrdinalIgnoreCase))
                 {
+                    var msg = $"Path {path} already exists in {(isSystem ? "system" : "user")} PATH";
                     if (showUI)
-                        MessageBox.Show("Path already exists.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    throw new InvalidOperationException("Path already exists");
+                        MessageBox.Show(msg, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    throw new InvalidOperationException(msg);
                 }
 
                 paths.Add(path);
                 Environment.SetEnvironmentVariable("PATH", string.Join(";", paths), target);
 
                 if (showUI)
-                    MessageBox.Show("Path added successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(
+                        $"Added {path} to {(isSystem ? "system" : "user")} PATH.\n\n" +
+                        "To refresh PATH in any current terminal:\n" +
+                        "- PowerShell: updatepath\n" +
+                        "- CMD: updatepath\n" +
+                        "For other shells, please restart your terminal to see the changes.",
+                        "Success",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                else
+                {
+                    Console.WriteLine($"Added {path} to {(isSystem ? "system" : "user")} PATH");
+                    Console.WriteLine("Run 'updatepath' to refresh PATH in current terminal");
+                }
 
                 LogMessage($"Added {path} to {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
                 BroadcastEnvironmentChange();
@@ -733,18 +714,33 @@ namespace AddToPath
 
             if (!paths.Contains(path, StringComparer.OrdinalIgnoreCase))
             {
+                var msg = $"Path {path} not found in {(isSystem ? "system" : "user")} PATH";
                 if (showUI)
-                    MessageBox.Show("Path not found.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                throw new InvalidOperationException("Path not found");
+                    MessageBox.Show(msg, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                throw new InvalidOperationException(msg);
             }
 
             paths.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
             Environment.SetEnvironmentVariable("PATH", string.Join(";", paths), target);
 
             if (showUI)
-                MessageBox.Show("Path removed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(
+                    $"Removed {path} from {(isSystem ? "system" : "user")} PATH.\n\n" +
+                    "To refresh PATH in current terminal:\n" +
+                    "- PowerShell: updatepath\n" +
+                    "- CMD: updatepath\n" +
+                    "For other shells, please restart your terminal to see the changes.",
+                    "Success",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            else
+            {
+                Console.WriteLine($"Removed {path} from {(isSystem ? "system" : "user")} PATH");
+                Console.WriteLine("Run 'updatepath' to refresh PATH in current terminal");
+            }
 
             LogMessage($"Removed {path} from {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
+
             BroadcastEnvironmentChange();
         }
 

@@ -59,7 +59,6 @@ namespace a2p
                     else
                         AddToPath.Program.AddToUserPath(fullPath);
                     
-                    Console.WriteLine($"Added {fullPath} to {(isSystem ? "system" : "user")} PATH");
                     return 0;
                 }
                 else if (cmd == "r" || cmd == "remove")
@@ -69,7 +68,6 @@ namespace a2p
                     else
                         AddToPath.Program.RemoveFromUserPath(fullPath);
                     
-                    Console.WriteLine($"Removed {fullPath} from {(isSystem ? "system" : "user")} PATH");
                     return 0;
                 }
                 else
@@ -80,7 +78,7 @@ namespace a2p
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
+                Console.WriteLine(ex.Message);
                 return 1;
             }
         }
