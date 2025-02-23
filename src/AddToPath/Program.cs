@@ -24,7 +24,7 @@ namespace AddToPath
         public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
     }
 
-    internal enum LogLevel
+    public enum LogLevel
     {
         Error,
         Warning,
@@ -131,7 +131,7 @@ namespace AddToPath
         }
     }
 
-    internal static class Program
+    public class Program
     {
         private const string AppName = "Add to PATH";
         private const string MenuName = "Path";
@@ -600,90 +600,90 @@ namespace AddToPath
             }
         }
 
-        private static void AddToPath(string path, bool isSystem)
+        public static void AddToPath(string path, bool isSystem, bool showUI = true)
         {
             try 
             {
-                var target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    if (showUI)
+                        MessageBox.Show("Please enter a valid path.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    throw new ArgumentException("Path cannot be empty");
+                }
+
+                if (!Directory.Exists(path))
+                {
+                    if (showUI)
+                        MessageBox.Show("Directory does not exist.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    throw new ArgumentException("Directory does not exist");
+                }
+
+                EnvironmentVariableTarget target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
                 var envPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
-                var paths = envPath.Split(';').Select(p => p.TrimEnd('\\')).ToList();
-                var normalizedPath = path.TrimEnd('\\');
+                var paths = envPath.Split(';').Select(p => p.Trim()).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
-                LogMessage($"Current PATH value: {envPath}", LogLevel.Debug, "PathOperation");
-                LogMessage($"Attempting to add: {normalizedPath}", LogLevel.Info, "PathOperation");
-
-                if (!paths.Contains(normalizedPath))
+                if (paths.Contains(path, StringComparer.OrdinalIgnoreCase))
                 {
-                    paths.Add(normalizedPath);
-                    var newPath = string.Join(";", paths);
-                    LogMessage($"Setting new PATH value: {newPath}", LogLevel.Debug, "PathOperation");
-
-                    Environment.SetEnvironmentVariable(
-                        "PATH",
-                        newPath,
-                        target
-                    );
-
-                    var verifyPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
-                    LogMessage($"Successfully modified {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
-                    LogMessage($"Verified new PATH value: {verifyPath}", LogLevel.Debug, "PathOperation");
-
-                    MessageBox.Show(
-                        $"Added '{path}' to {(isSystem ? "system" : "user")} PATH successfully.",
-                        "Success",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
+                    if (showUI)
+                        MessageBox.Show("Path already exists.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    throw new InvalidOperationException("Path already exists");
                 }
-                else
-                {
-                    LogMessage($"Path already exists: {normalizedPath}", LogLevel.Warning, "PathOperation");
-                    MessageBox.Show(
-                        $"'{path}' is already in the {(isSystem ? "system" : "user")} PATH.",
-                        "Already Added",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                }
+
+                paths.Add(path);
+                Environment.SetEnvironmentVariable("PATH", string.Join(";", paths), target);
+
+                if (showUI)
+                    MessageBox.Show("Path added successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                LogMessage($"Added {path} to {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
             }
             catch (Exception ex)
             {
-                LogMessage("Failed to modify PATH", LogLevel.Error, "PathOperation", ex);
-                MessageBox.Show(
-                    $"Error adding to PATH: {ex.Message}",
-                    "Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                LogMessage($"Error adding path: {ex.Message}", LogLevel.Error, "PathOperation", ex);
+                throw;
             }
         }
 
-        private static void RemoveFromPath(string path, bool isSystem)
+        public static void RemoveFromPath(string path, bool isSystem, bool showUI = true)
         {
             EnvironmentVariableTarget target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
             var envPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
-            var paths = envPath.Split(';').Select(p => p.TrimEnd('\\')).ToList();
-            var normalizedPath = path.TrimEnd('\\');
+            var paths = envPath.Split(';').Select(p => p.Trim()).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
-            if (paths.Contains(normalizedPath))
+            if (!paths.Contains(path, StringComparer.OrdinalIgnoreCase))
             {
-                paths.Remove(normalizedPath);
-                Environment.SetEnvironmentVariable(
-                    "PATH",
-                    string.Join(";", paths),
-                    target
-                );
-                MessageBox.Show(
-                    $"Removed '{path}' from {(isSystem ? "system" : "user")} PATH successfully.",
-                    "Success",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                if (showUI)
+                    MessageBox.Show("Path not found.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                throw new InvalidOperationException("Path not found");
             }
-            else
-            {
-                MessageBox.Show(
-                    $"'{path}' is not in the {(isSystem ? "system" : "user")} PATH.",
-                    "Not Found",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            }
+
+            paths.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
+            Environment.SetEnvironmentVariable("PATH", string.Join(";", paths), target);
+
+            if (showUI)
+                MessageBox.Show("Path removed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            LogMessage($"Removed {path} from {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
+        }
+
+        public static void AddToUserPath(string path)
+        {
+            AddToPath(path, false, false);
+        }
+
+        public static void AddToSystemPath(string path)
+        {
+            AddToPath(path, true, false);
+        }
+
+        public static void RemoveFromUserPath(string path)
+        {
+            RemoveFromPath(path, false, false);
+        }
+
+        public static void RemoveFromSystemPath(string path)
+        {
+            RemoveFromPath(path, true, false);
         }
 
         public static void ShowPaths(bool showUser = true, bool showSystem = true)
@@ -702,6 +702,16 @@ namespace AddToPath
                 LogMessage("Failed to show paths", LogLevel.Error, "Program", ex);
                 MessageBox.Show($"Error showing paths: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        public static string[] GetUserPaths()
+        {
+            return Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User)?.Split(';') ?? new string[0];
+        }
+
+        public static string[] GetSystemPaths()
+        {
+            return Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)?.Split(';') ?? new string[0];
         }
     }
 }
