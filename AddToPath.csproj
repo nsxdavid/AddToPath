@@ -5,9 +5,14 @@
     <TargetFramework>net472</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <ApplicationIcon>Images\AddToPath.ico</ApplicationIcon>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <Version>1.0.0</Version>
+    <Authors>Your Name</Authors>
+    <Product>Add to PATH Context Menu</Product>
+    <Description>Windows utility that adds PATH management to folder context menus</Description>
+    <Copyright>Copyright 2024</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

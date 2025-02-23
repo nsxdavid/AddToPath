@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace AddToPath
 {
@@ -17,6 +18,8 @@ namespace AddToPath
 
         public MainForm()
         {
+            // Get version from assembly
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
             Text = "Add to PATH - Windows Context Menu Utility";
             Size = new Size(520, 340);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -45,6 +48,17 @@ namespace AddToPath
                 Margin = new Padding(0, 0, 0, 15)
             };
             contentPanel.Controls.Add(titleLabel);
+
+            // Version label
+            var versionLabel = new Label
+            {
+                Text = $"v{version.Major}.{version.Minor}.{version.Build}",
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(120, 120, 120),
+                AutoSize = true,
+                Location = new Point(contentPanel.Width - 60, titleLabel.Top + 8)  // Align vertically with title
+            };
+            contentPanel.Controls.Add(versionLabel);
 
             // Description text
             descriptionLabel = new Label
@@ -77,6 +91,7 @@ namespace AddToPath
                     new ColumnStyle(SizeType.Percent, 33.33F)
                 }
             };
+
             Controls.Add(buttonPanel);
 
             // Install button
