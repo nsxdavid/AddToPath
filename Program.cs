@@ -89,14 +89,6 @@ namespace AddToPath
                         Log($"Showing all paths");
                         ShowPaths(true, true);
                         return;
-                    case "--showuserpath":
-                        Log($"Showing user path only");
-                        ShowPaths(true, false);
-                        return;
-                    case "--showsystempath":
-                        Log($"Showing system path only");
-                        ShowPaths(false, true);
-                        return;
                     case "--install":
                         InstallContextMenu();
                         MessageBox.Show(
@@ -315,41 +307,13 @@ namespace AddToPath
                     }
                 }
 
-                // Show PATHs submenu
+                // Show PATHs command (simplified)
                 using (var showKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\ShowPaths"))
                 {
-                    showKey.SetValue("", ""); // Empty default value
                     showKey.SetValue("MUIVerb", "Show PATHs");
-                    showKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
-
-                    // Show User PATH command
-                    using (var userKey = showKey.CreateSubKey(@"Shell\ShowUser"))
+                    using (var cmdKey = showKey.CreateSubKey("command"))
                     {
-                        userKey.SetValue("MUIVerb", "User PATH");
-                        using (var cmdKey = userKey.CreateSubKey("command"))
-                        {
-                            cmdKey.SetValue("", $"\"{ExePath}\" --showuserpath");
-                        }
-                    }
-
-                    // Show System PATH command
-                    using (var systemKey = showKey.CreateSubKey(@"Shell\ShowSystem"))
-                    {
-                        systemKey.SetValue("MUIVerb", "System PATH");
-                        using (var cmdKey = systemKey.CreateSubKey("command"))
-                        {
-                            cmdKey.SetValue("", $"\"{ExePath}\" --showsystempath");
-                        }
-                    }
-
-                    // Show All PATHs command
-                    using (var allKey = showKey.CreateSubKey(@"Shell\ShowAll"))
-                    {
-                        allKey.SetValue("MUIVerb", "All PATHs");
-                        using (var cmdKey = allKey.CreateSubKey("command"))
-                        {
-                            cmdKey.SetValue("", $"\"{ExePath}\" --showpaths");
-                        }
+                        cmdKey.SetValue("", $"\"{ExePath}\" --showpaths");
                     }
                 }
             }
