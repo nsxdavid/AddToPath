@@ -19,9 +19,22 @@ namespace AddToPath
     internal static class NativeMethods
     {
         public const int WM_SETICON = 0x0080;
+        public const int HWND_BROADCAST = 0xFFFF;
+        public const int WM_SETTINGCHANGE = 0x001A;
+        public const uint SMTO_ABORTIFHUNG = 0x0002;
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessageTimeout(
+            IntPtr hWnd,
+            uint Msg,
+            UIntPtr wParam,
+            string lParam,
+            uint fuFlags,
+            uint uTimeout,
+            out UIntPtr lpdwResult);
     }
 
     public enum LogLevel
@@ -646,6 +659,27 @@ namespace AddToPath
             }
         }
 
+        private static void BroadcastEnvironmentChange()
+        {
+            try
+            {
+                UIntPtr result;
+                NativeMethods.SendMessageTimeout(
+                    (IntPtr)NativeMethods.HWND_BROADCAST,
+                    NativeMethods.WM_SETTINGCHANGE,
+                    UIntPtr.Zero,
+                    "Environment",
+                    NativeMethods.SMTO_ABORTIFHUNG,
+                    1000,
+                    out result);
+                LogMessage("Broadcast environment change notification", LogLevel.Debug, "Environment");
+            }
+            catch (Exception ex)
+            {
+                LogMessage("Failed to broadcast environment change", LogLevel.Warning, "Environment", ex);
+            }
+        }
+
         public static void AddToPath(string path, bool isSystem, bool showUI = true)
         {
             try 
@@ -682,6 +716,7 @@ namespace AddToPath
                     MessageBox.Show("Path added successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 LogMessage($"Added {path} to {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
+                BroadcastEnvironmentChange();
             }
             catch (Exception ex)
             {
@@ -710,6 +745,7 @@ namespace AddToPath
                 MessageBox.Show("Path removed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             LogMessage($"Removed {path} from {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
+            BroadcastEnvironmentChange();
         }
 
         public static void AddToUserPath(string path)
