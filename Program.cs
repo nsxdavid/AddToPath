@@ -7,6 +7,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Security.Principal;
 using System.Text;
+using System.Management;
 
 namespace AddToPath
 {
@@ -90,6 +91,30 @@ namespace AddToPath
             {
                 // Ignore cleanup errors
             }
+        }
+    }
+
+    public static class ProcessExtensions
+    {
+        public static Process Parent(this Process process)
+        {
+            try
+            {
+                using (var query = new ManagementObjectSearcher(
+                    $"SELECT ParentProcessId FROM Win32_Process WHERE ProcessId = {process.Id}"))
+                {
+                    foreach (var mo in query.Get())
+                    {
+                        var parentId = (uint)mo["ParentProcessId"];
+                        return Process.GetProcessById((int)parentId);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore any errors, just return null
+            }
+            return null;
         }
     }
 
@@ -249,22 +274,72 @@ namespace AddToPath
             }
         }
 
+        private static string GetProcessDetails(Process proc)
+        {
+            try
+            {
+                return $"ID={proc.Id}, " +
+                       $"Path={proc.MainModule?.FileName ?? "unknown"}, " +
+                       $"Started={proc.StartTime:HH:mm:ss.fff}, " +
+                       $"Parent={proc.Parent()?.Id ?? 0}";
+            }
+            catch (Exception ex)
+            {
+                return $"ID={proc.Id}, Error getting details: {ex.Message}";
+            }
+        }
+
+        private static bool IsSameApplication(string path1, string path2)
+        {
+            if (string.Equals(path1, path2, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Consider Program Files version as the same application
+            var programFilesPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AddToPath", "AddToPath.exe");
+            return (string.Equals(path1, programFilesPath, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(path2, programFilesPath, StringComparison.OrdinalIgnoreCase));
+        }
+
         private static bool AreOtherInstancesRunning()
         {
             var currentProcess = Process.GetCurrentProcess();
+            var currentPath = currentProcess.MainModule?.FileName;
+            LogMessage($"Current process: {GetProcessDetails(currentProcess)}", LogLevel.Debug, "Program");
+            
             var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(ExePath));
-            return processes.Any(p => p.Id != currentProcess.Id);
+            LogMessage($"Found {processes.Length} total processes with our name", LogLevel.Debug, "Program");
+            
+            foreach (var proc in processes)
+            {
+                LogMessage($"Found process: {GetProcessDetails(proc)}", LogLevel.Debug, "Program");
+            }
+            
+            return processes.Any(p => p.Id != currentProcess.Id && 
+                                   IsSameApplication(p.MainModule?.FileName, currentPath));
         }
 
         private static bool KillOtherInstances()
         {
             var currentProcess = Process.GetCurrentProcess();
+            var currentPath = currentProcess.MainModule?.FileName;
             var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(ExePath));
-            var otherProcesses = processes.Where(p => p.Id != currentProcess.Id).ToList();
+            var otherProcesses = processes
+                .Where(p => p.Id != currentProcess.Id && 
+                           IsSameApplication(p.MainModule?.FileName, currentPath))
+                .ToList();
             
             if (!otherProcesses.Any())
+            {
+                LogMessage("No other instances found to kill", LogLevel.Debug, "Program");
                 return true;
+            }
 
+            LogMessage($"Found {otherProcesses.Count} other instances to kill", LogLevel.Debug, "Program");
+            foreach (var proc in otherProcesses)
+            {
+                LogMessage($"Will attempt to kill: {GetProcessDetails(proc)}", LogLevel.Debug, "Program");
+            }
+            
             var result = MessageBox.Show(
                 "Other instances of Add to PATH are running and must be closed to continue.\n\n" +
                 "Would you like to close them now?",
