@@ -38,9 +38,9 @@ jobs:
         $version = "${{ steps.get_version.outputs.version }}"
         $zipName = "AddToPath-v${version}-win-x64.zip"
         # First check if files exist
-        Get-ChildItem -Path "bin/Release/net472" -ErrorAction Continue
+        Get-ChildItem -Path "bin/Release" -ErrorAction Continue
         # Create ZIP with proper path
-        Compress-Archive -Path "bin/Release/net472/*" -DestinationPath $zipName -Force
+        Compress-Archive -Path "bin/Release/*" -DestinationPath $zipName -Force
 
     - name: Generate Release Notes
       id: release_notes
