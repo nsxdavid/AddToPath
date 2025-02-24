@@ -624,7 +624,7 @@ namespace AddToPath
                 Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\Background\shell\" + MenuName, false);
 
                 // Remove from PATH
-                RemoveFromPath(InstallDir, true);
+                RemoveFromPath(InstallDir, true, true, true);  // Silent if not found during uninstall
 
                 // Delete installed files
                 if (Directory.Exists(InstallDir))
@@ -742,7 +742,7 @@ namespace AddToPath
             }
         }
 
-        public static void RemoveFromPath(string path, bool isSystem, bool showUI = true)
+        public static bool RemoveFromPath(string path, bool isSystem, bool showUI = true, bool silentIfNotFound = false)
         {
             EnvironmentVariableTarget target = isSystem ? EnvironmentVariableTarget.Machine : EnvironmentVariableTarget.User;
             var envPath = Environment.GetEnvironmentVariable("PATH", target) ?? "";
@@ -751,9 +751,11 @@ namespace AddToPath
             if (!paths.Contains(path, StringComparer.OrdinalIgnoreCase))
             {
                 var msg = $"Path {path} not found in {(isSystem ? "system" : "user")} PATH";
-                if (showUI)
+                if (showUI && !silentIfNotFound)
                     MessageBox.Show(msg, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                throw new InvalidOperationException(msg);
+                if (!silentIfNotFound)
+                    throw new InvalidOperationException(msg);
+                return false;
             }
 
             paths.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
@@ -778,6 +780,7 @@ namespace AddToPath
             LogMessage($"Removed {path} from {(isSystem ? "system" : "user")} PATH", LogLevel.Info, "PathOperation");
 
             BroadcastEnvironmentChange();
+            return true;
         }
 
         public static void AddToUserPath(string path)
