@@ -12,7 +12,11 @@
 
 A Windows utility for managing your PATH environment variable through both a context menu and command line interface.
 
-[Screenshots to be added]
+<p align="center">
+  <img src="src/AddToPath/Images/Screenshot1.png" alt="AddToPath Context Menu" width="600">
+  <br>
+  <em>AddToPath context menu integration in Windows Explorer</em>
+</p>
 
 ## Table of Contents
 - [Requirements](#requirements)
