@@ -115,17 +115,7 @@ AddToPath/
 │   │   └── a2p.exe        # CLI executable
 │   └── Release/           # Release builds
 └── ...
-
-- Only executables are copied (no dependencies needed - they're embedded)
-- This setup serves multiple purposes:
-  1. During development:
-     - Makes it easy to find and run the latest builds
-     - Ensures the GUI installer can find the CLI tool for installation
-     - Simulates the installed state where both tools are in the same directory
-  2. For releases:
-     - Provides a clean directory with just the executables
-     - Simplifies the release process by having all artifacts in one place
-     - No dependencies to manage - everything is embedded
+```
 
 ### Dependencies
 - **[Costura.Fody](https://github.com/Fody/Costura)**: Embeds all DLLs into the executable at build time
@@ -181,6 +171,42 @@ AddToPath/
   - PATH modifications succeed
   - CLI tool is accessible from PATH
 
+## Security Guidelines
+
+### Reporting Security Issues
+- **Do NOT report security vulnerabilities through public GitHub issues**
+- Instead, report them privately through [GitHub's Security Advisory feature](https://github.com/nsxdavid/AddToPath/security/advisories/new)
+- The maintainers will be notified and can privately discuss the issue with you
+- Please provide detailed information about the vulnerability and steps to reproduce
+- Once the issue is addressed, we'll coordinate the public disclosure
+
+### Security Considerations When Contributing
+1. **Elevated Permissions**:
+   - Any code that requires admin rights must be clearly marked
+   - Minimize the scope of elevated operations
+   - Always verify user intent before executing privileged operations
+
+2. **File System Operations**:
+   - Validate all file paths before modification
+   - Use secure file operation practices
+   - Be cautious with file permissions
+
+3. **Registry Operations**:
+   - Validate registry paths before modification
+   - Only modify necessary registry keys
+   - Handle registry access errors gracefully
+
+4. **Input Validation**:
+   - Validate all user input
+   - Sanitize file paths and registry keys
+   - Handle invalid input gracefully
+
+### Best Practices for Security
+- Follow the principle of least privilege
+- Add appropriate error handling for security-sensitive operations
+- Document any security-relevant changes in pull requests
+- If in doubt about security implications, ask in the PR discussion
+
 ## Best Practices
 1. Always build and test in Release configuration before committing
 2. Verify both executables work standalone before pushing a release tag
@@ -192,3 +218,15 @@ AddToPath/
    - Menu items are ordered by registry key names (alphabetical sorting)
    - Use numbered prefixes (e.g., "1_AddToPath") to control menu order
    - Keep display names user-friendly using MUIVerb values
+
+### Build Output Directory
+- Only executables are copied (no dependencies needed - they're embedded)
+- This setup serves multiple purposes:
+  1. During development:
+     - Makes it easy to find and run the latest builds
+     - Ensures the GUI installer can find the CLI tool for installation
+     - Simulates the installed state where both tools are in the same directory
+  2. For releases:
+     - Provides a clean directory with just the executables
+     - Simplifies the release process by having all artifacts in one place
+     - No dependencies to manage - everything is embedded
