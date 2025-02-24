@@ -26,6 +26,62 @@ Project maintainers are responsible for clarifying and enforcing these standards
 ### Reporting
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue with the label "Code of Conduct". All complaints will be reviewed and investigated promptly and fairly.
 
+## Contribution Process
+
+### Issues
+1. **Search First**: Before creating a new issue, search existing issues to avoid duplicates
+2. **Issue Types**:
+   - Bug Report: Describe the bug, steps to reproduce, expected vs actual behavior
+   - Feature Request: Describe the feature, its use case, and potential implementation
+   - Question: For general questions about usage or development
+
+### Pull Requests
+1. **Fork & Branch**:
+   - Fork the repository
+   - Create a branch with a descriptive name:
+     - `feature/description` for new features
+     - `fix/description` for bug fixes
+     - `docs/description` for documentation changes
+     - `refactor/description` for code refactoring
+
+2. **Commit Guidelines**:
+   - Write clear, descriptive commit messages
+   - Optional: Use conventional commits format for structured changes:
+     ```
+     type: description
+     ```
+   - Common types when used: `feat`, `fix`, `docs`, `refactor`
+   - Keep commits focused on single changes
+   - Reference issues in commit messages when applicable: "fixes #123"
+
+3. **Development**:
+   - Write clear, commented, and testable code
+   - Follow existing code style and patterns
+   - Update documentation if needed
+   - Test your changes thoroughly
+
+4. **Pull Request Process**:
+   - Create a PR against the `main` branch
+   - Use the PR template if provided
+   - Include:
+     - Clear description of changes
+     - Screenshots for UI changes
+     - Steps to test the changes
+   - Keep PRs focused - one feature/fix per PR
+   - Respond to review comments promptly
+
+5. **Code Review**:
+   - All PRs require review before merging
+   - Address review feedback in new commits
+   - Maintainers may request changes or provide suggestions
+   - Once approved, maintainers will merge the PR
+
+### Communication
+- Keep discussions focused and professional
+- Provide context and examples when asking questions
+- Tag relevant maintainers when needed
+- Be patient - maintainers will respond as time permits
+
 ## Development Setup
 
 ### Prerequisites
