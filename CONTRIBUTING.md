@@ -1,5 +1,31 @@
 # Contributing to AddToPath
 
+## Code of Conduct
+
+### Our Pledge
+We are committed to making participation in the AddToPath project a harassment-free experience for everyone, regardless of experience level, age, disability, ethnicity, gender identity and expression, nationality, personal appearance, race, religion, or sexual orientation.
+
+### Our Standards
+Examples of behavior that contributes to creating a positive environment include:
+- Using welcoming and inclusive language
+- Being respectful of differing viewpoints and experiences
+- Gracefully accepting constructive criticism
+- Focusing on what is best for the community
+- Showing empathy towards other community members
+
+Examples of unacceptable behavior include:
+- The use of sexualized language or imagery
+- Trolling, insulting/derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others' private information without explicit permission
+- Other conduct which could reasonably be considered inappropriate
+
+### Enforcement
+Project maintainers are responsible for clarifying and enforcing these standards. They have the right and responsibility to remove, edit, or reject comments, commits, code, issues, and other contributions that are not aligned with this Code of Conduct.
+
+### Reporting
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue with the label "Code of Conduct". All complaints will be reviewed and investigated promptly and fairly.
+
 ## Development Setup
 
 ### Prerequisites
@@ -24,20 +50,16 @@ dotnet build -c Release
 ### Solution Layout
 ```
 AddToPath/
-├── src/                    # Source code directory
+├── src/                   # Source code directory
 │   ├── AddToPath/         # GUI application project
 │   └── a2p/               # CLI tool project
 ├── bin/                   # Shared build output
-│   ├── Debug/            # Debug builds
-│   │   ├── AddToPath.exe # GUI executable
-│   │   └── a2p.exe      # CLI executable
-│   └── Release/          # Release builds
+│   ├── Debug/             # Debug builds
+│   │   ├── AddToPath.exe  # GUI executable
+│   │   └── a2p.exe        # CLI executable
+│   └── Release/           # Release builds
 └── ...
-```
 
-### Build Process
-- Each project builds to its own output directory (`src/*/bin/Debug/net472/`)
-- Post-build events copy executables to the shared `bin` directory
 - Only executables are copied (no dependencies needed - they're embedded)
 - This setup serves multiple purposes:
   1. During development:
@@ -114,4 +136,3 @@ AddToPath/
    - Menu items are ordered by registry key names (alphabetical sorting)
    - Use numbered prefixes (e.g., "1_AddToPath") to control menu order
    - Keep display names user-friendly using MUIVerb values
-
