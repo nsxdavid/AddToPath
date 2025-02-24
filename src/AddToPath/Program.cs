@@ -229,8 +229,8 @@ namespace AddToPath
                     return;
                 case "--removefromuserpath":
                     if (path != null && Directory.Exists(path))
-                    {
-                        RemoveFromPath(path, false);
+                {
+                    RemoveFromPath(path, false);
                     }
                     return;
                 case "--removefromsystempath":
@@ -242,6 +242,23 @@ namespace AddToPath
                 case "--showpaths":
                     LogMessage("Showing all paths", LogLevel.Info, "Program");
                     ShowPaths(true, true);
+                    return;
+                case "--checkpath":
+                    if (path != null)
+                    {
+                        var (inUserPath, inSystemPath) = CheckPathLocation(path);
+                        string msg;
+                        if (!inUserPath && !inSystemPath)
+                            msg = $"Path {path} is not in either PATH";
+                        else if (inUserPath && inSystemPath)
+                            msg = $"Path {path} is in both user and system PATH";
+                        else if (inUserPath)
+                            msg = $"Path {path} is in user PATH";
+                        else
+                            msg = $"Path {path} is in system PATH";
+                        LogMessage(msg, LogLevel.Info, "Program");
+                        MessageBox.Show(msg, "Path Status", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                     return;
                 case "--install":
                     InstallContextMenu();
@@ -485,14 +502,14 @@ namespace AddToPath
                 {
                     key.SetValue("", ""); // Empty default value
                     key.SetValue("MUIVerb", "Path");
-                    key.SetValue("SubCommands", "AddToPath;RemoveFromPath;ShowPaths"); // Main menu commands
+                    key.SetValue("SubCommands", "1_AddToPath;2_RemoveFromPath;3_CheckPath;4_ShowPaths"); // Main menu commands
                 }
 
                 // Create Shell container for submenus
                 Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell");
 
                 // Add to PATH submenu
-                using (var addKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\AddToPath"))
+                using (var addKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\1_AddToPath"))
                 {
                     addKey.SetValue("", ""); // Empty default value
                     addKey.SetValue("MUIVerb", "Add to PATH");
@@ -520,7 +537,7 @@ namespace AddToPath
                 }
 
                 // Remove from PATH submenu
-                using (var removeKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\RemoveFromPath"))
+                using (var removeKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\2_RemoveFromPath"))
                 {
                     removeKey.SetValue("", ""); // Empty default value
                     removeKey.SetValue("MUIVerb", "Remove from PATH");
@@ -547,8 +564,18 @@ namespace AddToPath
                     }
                 }
 
+                // Check PATH Status command
+                using (var checkKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\3_CheckPath"))
+                {
+                    checkKey.SetValue("MUIVerb", "Check PATH Status");
+                    using (var cmdKey = checkKey.CreateSubKey("command"))
+                    {
+                        cmdKey.SetValue("", $"\"{ExePath}\" --checkpath \"%1\"");
+                    }
+                }
+
                 // Show PATHs command (simplified)
-                using (var showKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\ShowPaths"))
+                using (var showKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\4_ShowPaths"))
                 {
                     showKey.SetValue("MUIVerb", "Show PATHs");
                     using (var cmdKey = showKey.CreateSubKey("command"))
@@ -801,6 +828,28 @@ namespace AddToPath
         public static string[] GetSystemPaths()
         {
             return Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)?.Split(';') ?? new string[0];
+        }
+
+        public static (bool InUserPath, bool InSystemPath) CheckPathLocation(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return (false, false);
+
+            // Normalize the path for comparison
+            path = Path.GetFullPath(path).TrimEnd('\\');
+            
+            var userPaths = GetUserPaths()
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => Path.GetFullPath(p).TrimEnd('\\'));
+                
+            var systemPaths = GetSystemPaths()
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => Path.GetFullPath(p).TrimEnd('\\'));
+                
+            return (
+                userPaths.Contains(path, StringComparer.OrdinalIgnoreCase),
+                systemPaths.Contains(path, StringComparer.OrdinalIgnoreCase)
+            );
         }
     }
 }

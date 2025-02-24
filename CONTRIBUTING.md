@@ -110,3 +110,8 @@ AddToPath/
 4. Test PATH modifications on both user and system level
 5. Remember to run with admin rights when testing system PATH changes
 6. Test both GUI and CLI functionality after making changes
+7. Context menu organization:
+   - Menu items are ordered by registry key names (alphabetical sorting)
+   - Use numbered prefixes (e.g., "1_AddToPath") to control menu order
+   - Keep display names user-friendly using MUIVerb values
+

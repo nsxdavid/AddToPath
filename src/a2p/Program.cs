@@ -43,6 +43,41 @@ namespace a2p
                     return 0;
                 }
 
+                // Check if a path is in PATH variables
+                if (cmd == "c" || cmd == "check")
+                {
+                    if (args.Length < 2)
+                    {
+                        Console.WriteLine("Please specify a path to check");
+                        ShowUsage();
+                        return 1;
+                    }
+
+                    string checkPath = args[1];
+                    try
+                    {
+                        string pathToCheck = Path.GetFullPath(checkPath);
+                        var (inUser, inSystem) = AddToPath.Program.CheckPathLocation(pathToCheck);
+                        
+                        if (!inUser && !inSystem)
+                        {
+                            Console.WriteLine($"'{pathToCheck}' is not in PATH");
+                            return 1;
+                        }
+
+                        if (inUser)
+                            Console.WriteLine($"'{pathToCheck}' is in user PATH");
+                        if (inSystem)
+                            Console.WriteLine($"'{pathToCheck}' is in system PATH");
+                        return 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error checking path: {ex.Message}");
+                        return 1;
+                    }
+                }
+
                 if (args.Length < 3)
                 {
                     ShowUsage();
@@ -253,13 +288,25 @@ namespace a2p
 
         static void ShowUsage()
         {
-            Console.WriteLine("Usage:");
-            Console.WriteLine("  a2p h|help                    Show this help");
-            Console.WriteLine("  a2p l|list                    List current PATH entries");
-            Console.WriteLine("  a2p a|add u|user <path>       Add <path> to user PATH");
-            Console.WriteLine("  a2p a|add s|system <path>     Add <path> to system PATH (requires admin)");
-            Console.WriteLine("  a2p r|remove u|user <path>    Remove <path> from user PATH");
-            Console.WriteLine("  a2p r|remove s|system <path>  Remove <path> from system PATH (requires admin)");
+            Console.WriteLine("AddToPath CLI Tool Usage:");
+            Console.WriteLine("  a2p <command> [scope] <path>");
+            Console.WriteLine();
+            Console.WriteLine("Commands:");
+            Console.WriteLine("  a, add     Add a directory to PATH");
+            Console.WriteLine("  r, remove  Remove a directory from PATH");
+            Console.WriteLine("  l, list    List all PATH entries");
+            Console.WriteLine("  c, check   Check if a directory is in PATH");
+            Console.WriteLine("  h, help    Show this help message");
+            Console.WriteLine();
+            Console.WriteLine("Scope (required for add/remove):");
+            Console.WriteLine("  u, user    Modify user PATH");
+            Console.WriteLine("  s, system  Modify system PATH (requires admin)");
+            Console.WriteLine();
+            Console.WriteLine("Examples:");
+            Console.WriteLine("  a2p add user C:\\MyTools     Add to user PATH");
+            Console.WriteLine("  a2p remove system C:\\MyTools Remove from system PATH");
+            Console.WriteLine("  a2p list                     Show all PATH entries");
+            Console.WriteLine("  a2p check C:\\MyTools        Check if directory is in PATH");
         }
 
         static void ShowPaths()

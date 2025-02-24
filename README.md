@@ -10,6 +10,7 @@ A Windows utility for managing your PATH environment variable through both a con
      - Right-click any folder and use the "Path" menu
      - Add folders to system or user PATH
      - Remove folders from PATH
+     - Check if folders are in PATH
      - View all PATH entries
      
   2. Command Line (CLI)
