@@ -502,6 +502,7 @@ namespace AddToPath
                 {
                     key.SetValue("", ""); // Empty default value
                     key.SetValue("MUIVerb", "Path");
+                    key.SetValue("Icon", $"\"{ExePath}\""); // Add icon from our executable
                     key.SetValue("SubCommands", "1_AddToPath;2_RemoveFromPath;3_CheckPath;4_ShowPaths"); // Main menu commands
                 }
 
