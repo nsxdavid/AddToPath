@@ -720,10 +720,7 @@ namespace AddToPath
                 if (showUI)
                     MessageBox.Show(
                         $"Added {path} to {(isSystem ? "system" : "user")} PATH.\n\n" +
-                        "To refresh PATH in any current terminal:\n" +
-                        "- PowerShell: updatepath\n" +
-                        "- CMD: updatepath\n" +
-                        "For other shells, please restart your terminal to see the changes.",
+                        "Run 'updatepath' to refresh PATH in any current terminal.\n",
                         "Success",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
@@ -765,10 +762,7 @@ namespace AddToPath
             if (showUI)
                 MessageBox.Show(
                     $"Removed {path} from {(isSystem ? "system" : "user")} PATH.\n\n" +
-                    "To refresh PATH in current terminal:\n" +
-                    "- PowerShell: updatepath\n" +
-                    "- CMD: updatepath\n" +
-                    "For other shells, please restart your terminal to see the changes.",
+                    "Run 'updatepath' to refresh PATH in any current terminal.\n",
                     "Success",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
