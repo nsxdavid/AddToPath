@@ -1,7 +1,7 @@
 # AddToPath
 
 <p align="center">
-  <img src="src/AddToPath/Images/AddToPath.png" alt="AddToPath Logo" width="128" height="128">
+  <img src="https://raw.githubusercontent.com/nsxdavid/AddToPath/main/src/AddToPath/Images/AddToPath.png" alt="AddToPath Logo" width="128" height="128">
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 A Windows utility for managing your PATH environment variable through both a context menu and command line interface.
 
 <p align="center">
-  <img src="src/AddToPath/Images/Screenshot1.png" alt="AddToPath Context Menu" width="600">
+  <img src="https://raw.githubusercontent.com/nsxdavid/AddToPath/main/src/AddToPath/Images/Screenshot1.png" alt="AddToPath Context Menu" width="600">
   <br>
   <em>AddToPath context menu integration in Windows Explorer</em>
 </p>
