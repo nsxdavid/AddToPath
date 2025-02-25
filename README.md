@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nsxdavid/AddToPath/releases/latest"><img src="https://img.shields.io/github/v/release/nsxdavid/AddToPath" alt="GitHub release"></a>
+  <a href="https://github.com/nsxdavid/AddToPath/releases/latest"><img src="https://img.shields.io/github/v/release/nsxdavid/AddToPath?cache=1" alt="GitHub release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/nsxdavid/AddToPath" alt="License"></a>
   <a href="https://github.com/nsxdavid/AddToPath"><img src="https://img.shields.io/badge/platform-Windows-blue" alt="Windows"></a>
 </p>
