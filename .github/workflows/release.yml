@@ -100,9 +100,9 @@ jobs:
         - 
 
         ### Installation Instructions
-        1. Download `AddToPath-v${version}-win-x64.zip`
+        1. Download `AddToPath-v${version}-win-x64.zip` from [releases](https://github.com/nsxdavid/AddToPath/releases) page, Assets section
         2. Extract the ZIP file to any location
-        3. Run `AddToPath.exe`
+        3. Run `AddToPath.exe` from the extracted folder
         "@
 
         $notes | Out-File release_notes.md -Encoding UTF8
