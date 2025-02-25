@@ -13,6 +13,7 @@ using System.Text;
 using System.Management;
 using System.Runtime.InteropServices;
 using System.Drawing;
+using System.ComponentModel; 
 
 namespace AddToPath
 {
@@ -163,11 +164,6 @@ namespace AddToPath
         public static void LogMessage(string message, LogLevel level = LogLevel.Info, string category = "General", Exception ex = null)
         {
             Logger.Log(level, category, message, ex);
-        }
-
-        private static void Log(string message)
-        {
-            MessageBox.Show(message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         [STAThread]
@@ -430,16 +426,6 @@ namespace AddToPath
                 LogMessage($"Will attempt to kill: {GetProcessDetails(proc)}", LogLevel.Debug, "Program");
             }
             
-            var result = MessageBox.Show(
-                "Other instances of AddToPath GUI and CLI (a2p) are running and must be closed to continue.\n\n" +
-                "Would you like to close them now?",
-                "Close Running Instances",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result != DialogResult.Yes)
-                return false;
-
             foreach (var process in otherProcesses)
             {
                 try
@@ -467,19 +453,10 @@ namespace AddToPath
 
             if (AreOtherInstancesRunning())
             {
-                if (!KillOtherInstances())
-                {
-                    MessageBox.Show(
-                        "Installation cannot proceed while other instances are running.\n" +
-                        "Please close all instances of AddToPath GUI and CLI (a2p) and try again.",
-                        "Installation Cancelled",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    return false;
-                }
+                KillOtherInstances();
             }
 
-            try
+            try 
             {
                 // Create installation directory if it doesn't exist
                 if (!Directory.Exists(InstallDir))
@@ -520,17 +497,39 @@ namespace AddToPath
                 // Copy executables
                 try
                 {
-                    File.Copy(sourceExe, ExePath, true);
-                    File.Copy(a2pSourcePath, Path.Combine(InstallDir, "a2p.exe"), true);
+                    File.Copy(sourceExe, ExePath, overwrite: true);
+                    File.Copy(a2pSourcePath, Path.Combine(InstallDir, "a2p.exe"), overwrite: true);
                 }
                 catch (Exception ex)
                 {
-                    LogMessage("Failed to copy executables", LogLevel.Error, "Installation", ex);
-                    MessageBox.Show(
-                        $"Installation failed: Could not copy files to Program Files\n{ex.Message}",
-                        "Error",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
+                    var error = ex is UnauthorizedAccessException ? ex :
+                              ex.InnerException as UnauthorizedAccessException;
+                    
+                    if (error != null)
+                    {
+                        LogMessage($"Access denied copying files. HRESULT: 0x{error.HResult:X8}", 
+                                 LogLevel.Error, "Installation", ex);
+                        MessageBox.Show(
+                            $"Installation failed: Access denied copying files to Program Files\n" +
+                            $"HRESULT: 0x{error.HResult:X8}\n" +
+                            $"Error: {error.Message}\n" +
+                            $"IsAdmin: {IsRunningAsAdmin()}\n" +
+                            $"ExePath: {ExePath}\n" +
+                            $"Process: {Process.GetCurrentProcess().MainModule.FileName}",
+                            "Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+                    else
+                    {
+                        LogMessage($"Failed to copy files. Exception: {ex.GetType().Name}, Message: {ex.Message}", 
+                                 LogLevel.Error, "Installation", ex);
+                        MessageBox.Show(
+                            $"Installation failed: Could not copy files to Program Files\nError: {ex.Message}",
+                            "Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
                     return false;
                 }
 
@@ -702,20 +701,18 @@ namespace AddToPath
 
             if (AreOtherInstancesRunning())
             {
-                if (!KillOtherInstances())
-                {
-                    MessageBox.Show(
-                        "Uninstallation cannot proceed while other instances are running.\n" +
-                        "Please close all instances of AddToPath GUI and CLI (a2p) and try again.",
-                        "Uninstallation Cancelled",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    return;
-                }
+                KillOtherInstances();
             }
 
             try 
             {
+                // Check if current directory is inside our install directory
+                var currentDir = Directory.GetCurrentDirectory();
+                if (currentDir.StartsWith(InstallDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    Directory.SetCurrentDirectory(Path.GetTempPath());
+                }
+
                 // Remove registry entries
                 Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\shell\" + MenuName, false);
                 Registry.ClassesRoot.DeleteSubKeyTree(@"Directory\Background\shell\" + MenuName, false);
@@ -723,34 +720,43 @@ namespace AddToPath
                 // Remove from PATH
                 RemoveFromPath(InstallDir, true, true, true);  // Silent if not found during uninstall
 
-                // Delete installed files
-                if (Directory.Exists(InstallDir))
+                // Create cleanup script in temp directory
+                var processId = Process.GetCurrentProcess().Id;
+                var cleanupScript = Path.Combine(Path.GetTempPath(), $"addtopath_cleanup_{processId}.ps1");
+                
+                // Clean up any existing script first
+                try 
                 {
-                    foreach (var file in new[] { 
-                        "AddToPath.exe", "a2p.exe", 
-                        "updatepath.ps1", "updatepath.bat"
-                    })
+                    if (File.Exists(cleanupScript))
                     {
-                        try
-                        {
-                            File.Delete(Path.Combine(InstallDir, file));
-                        }
-                        catch
-                        {
-                            // Ignore individual file deletion errors
-                        }
-                    }
-                    try
-                    {
-                        Directory.Delete(InstallDir);
-                    }
-                    catch
-                    {
-                        // Ignore directory deletion error
+                        File.Delete(cleanupScript);
                     }
                 }
+                catch 
+                {
+                    // Ignore cleanup errors
+                }
 
-                Log("Uninstalled successfully");
+                File.WriteAllText(cleanupScript, $@"
+while (Get-Process -Id {processId} -ErrorAction SilentlyContinue) {{
+    Start-Sleep -Milliseconds 100
+}}
+Remove-Item -Path '{InstallDir}' -Recurse -Force -ErrorAction SilentlyContinue
+");
+
+                // Launch cleanup script detached
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File \"{cleanupScript}\"",
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                Process.Start(startInfo);
+
+                MessageBox.Show("AddToPath has been uninstalled", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Environment.Exit(0); // Exit to let the cleanup script do its work
             }
             catch (Exception ex)
             {
