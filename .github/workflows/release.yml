@@ -102,8 +102,7 @@ jobs:
         ### Installation Instructions
         1. Download `AddToPath-v${version}-win-x64.zip`
         2. Extract the ZIP file to any location
-        3. Run `AddToPath.exe` - no installation needed
-        4. Note: You may need to approve UAC prompt when the app modifies PATH
+        3. Run `AddToPath.exe`
         "@
 
         $notes | Out-File release_notes.md -Encoding UTF8
