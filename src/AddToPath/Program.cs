@@ -261,15 +261,17 @@ namespace AddToPath
                     }
                     return;
                 case "--install":
-                    InstallContextMenu();
-                    MessageBox.Show(
-                        "AddToPath GUI and CLI (a2p) tools installed successfully!\n" +
-                        "You can now:\n" +
-                        "1. Use the context menu to manage PATH entries\n" +
-                        "2. Run 'a2p' from any terminal to manage PATH entries",
-                        "Installation Complete",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
+                    if (InstallContextMenu())
+                    {
+                        MessageBox.Show(
+                            "AddToPath GUI and CLI (a2p) tools installed successfully!\n" +
+                            "You can now:\n" +
+                            "1. Use the context menu to manage PATH entries\n" +
+                            "2. Run 'a2p' from any terminal to manage PATH entries",
+                            "Installation Complete",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
                     return;
             }
 
@@ -455,12 +457,12 @@ namespace AddToPath
             return !AreOtherInstancesRunning();
         }
 
-        public static void InstallContextMenu()
+        public static bool InstallContextMenu()
         {
             if (!IsRunningAsAdmin())
             {
                 RestartAsAdmin(new[] { "--install" });
-                return;
+                return false;
             }
 
             if (AreOtherInstancesRunning())
@@ -473,117 +475,210 @@ namespace AddToPath
                         "Installation Cancelled",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
-                    return;
+                    return false;
                 }
             }
 
             try
             {
+                // Create installation directory if it doesn't exist
                 if (!Directory.Exists(InstallDir))
                 {
-                    Directory.CreateDirectory(InstallDir);
-                }
-
-                File.Copy(Application.ExecutablePath, ExePath, true);
-                File.Copy(Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "a2p.exe"), 
-                    Path.Combine(InstallDir, "a2p.exe"), true);
-
-                // Create helper scripts for refreshing PATH
-                File.WriteAllText(
-                    Path.Combine(InstallDir, "updatepath.ps1"),
-                    "$env:Path = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")");
-
-                File.WriteAllText(
-                    Path.Combine(InstallDir, "updatepath.bat"),
-                    "@echo off\nfor /f \"tokens=2*\" %%a in ('reg query \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\" /v Path') do set SYSPATH=%%b\nfor /f \"tokens=2*\" %%a in ('reg query \"HKCU\\Environment\" /v Path') do set USERPATH=%%b\nset PATH=%SYSPATH%;%USERPATH%");
-
-                // Create main menu entry
-                using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path"))
-                {
-                    key.SetValue("", ""); // Empty default value
-                    key.SetValue("MUIVerb", "Path");
-                    key.SetValue("Icon", $"\"{ExePath}\""); // Add icon from our executable
-                    key.SetValue("SubCommands", "1_AddToPath;2_RemoveFromPath;3_CheckPath;4_ShowPaths"); // Main menu commands
-                }
-
-                // Create Shell container for submenus
-                Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell");
-
-                // Add to PATH submenu
-                using (var addKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\1_AddToPath"))
-                {
-                    addKey.SetValue("", ""); // Empty default value
-                    addKey.SetValue("MUIVerb", "Add to PATH");
-                    addKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
-
-                    // Add User PATH command
-                    using (var userKey = addKey.CreateSubKey(@"Shell\User"))
+                    try
                     {
-                        userKey.SetValue("MUIVerb", "User PATH");
-                        using (var cmdKey = userKey.CreateSubKey("command"))
+                        Directory.CreateDirectory(InstallDir);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage("Failed to create installation directory", LogLevel.Error, "Installation", ex);
+                        MessageBox.Show(
+                            $"Installation failed: Could not create installation directory\n{ex.Message}",
+                            "Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return false;
+                    }
+                }
+
+                // Check source files exist
+                string sourceExe = Application.ExecutablePath;
+                string sourceDir = Path.GetDirectoryName(sourceExe);
+                string a2pSourcePath = Path.Combine(sourceDir, "a2p.exe");
+
+                if (!File.Exists(sourceExe) || !File.Exists(a2pSourcePath))
+                {
+                    LogMessage("Required files missing", LogLevel.Error, "Installation");
+                    MessageBox.Show(
+                        "Installation failed: Required files not found.\n" +
+                        "Make sure both AddToPath.exe and a2p.exe are in the same directory.",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Copy executables
+                try
+                {
+                    File.Copy(sourceExe, ExePath, true);
+                    File.Copy(a2pSourcePath, Path.Combine(InstallDir, "a2p.exe"), true);
+                }
+                catch (Exception ex)
+                {
+                    LogMessage("Failed to copy executables", LogLevel.Error, "Installation", ex);
+                    MessageBox.Show(
+                        $"Installation failed: Could not copy files to Program Files\n{ex.Message}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Create helper scripts
+                try
+                {
+                    File.WriteAllText(
+                        Path.Combine(InstallDir, "updatepath.ps1"),
+                        "$env:Path = [System.Environment]::GetEnvironmentVariable(\"Path\",\"Machine\") + \";\" + [System.Environment]::GetEnvironmentVariable(\"Path\",\"User\")");
+
+                    File.WriteAllText(
+                        Path.Combine(InstallDir, "updatepath.bat"),
+                        "@echo off\nfor /f \"tokens=2*\" %%a in ('reg query \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\" /v Path') do set SYSPATH=%%b\nfor /f \"tokens=2*\" %%a in ('reg query \"HKCU\\Environment\" /v Path') do set USERPATH=%%b\nset PATH=%SYSPATH%;%USERPATH%");
+                }
+                catch (Exception ex)
+                {
+                    LogMessage("Failed to create helper scripts", LogLevel.Error, "Installation", ex);
+                    MessageBox.Show(
+                        $"Installation failed: Could not create helper scripts\n{ex.Message}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return false;
+                }
+
+                // Create registry entries
+                try
+                {
+                    // Create main menu entry
+                    using (var key = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path"))
+                    {
+                        key.SetValue("", ""); // Empty default value
+                        key.SetValue("MUIVerb", "Path");
+                        key.SetValue("Icon", $"\"{ExePath}\""); // Add icon from our executable
+                        key.SetValue("SubCommands", "1_AddToPath;2_RemoveFromPath;3_CheckPath;4_ShowPaths"); // Main menu commands
+                    }
+
+                    // Create Shell container for submenus
+                    Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell");
+
+                    // Add to PATH submenu
+                    using (var addKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\1_AddToPath"))
+                    {
+                        addKey.SetValue("", ""); // Empty default value
+                        addKey.SetValue("MUIVerb", "Add to PATH");
+                        addKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
+
+                        // Add User PATH command
+                        using (var userKey = addKey.CreateSubKey(@"Shell\User"))
                         {
-                            cmdKey.SetValue("", $"\"{ExePath}\" --addtouserpath \"%1\"");
+                            userKey.SetValue("MUIVerb", "User PATH");
+                            using (var cmdKey = userKey.CreateSubKey("command"))
+                            {
+                                cmdKey.SetValue("", $"\"{ExePath}\" --addtouserpath \"%1\"");
+                            }
+                        }
+
+                        // Add System PATH command
+                        using (var systemKey = addKey.CreateSubKey(@"Shell\System"))
+                        {
+                            systemKey.SetValue("MUIVerb", "System PATH");
+                            using (var cmdKey = systemKey.CreateSubKey("command"))
+                            {
+                                cmdKey.SetValue("", $"\"{ExePath}\" --addtosystempath \"%1\"");
+                            }
                         }
                     }
 
-                    // Add System PATH command
-                    using (var systemKey = addKey.CreateSubKey(@"Shell\System"))
+                    // Remove from PATH submenu
+                    using (var removeKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\2_RemoveFromPath"))
                     {
-                        systemKey.SetValue("MUIVerb", "System PATH");
-                        using (var cmdKey = systemKey.CreateSubKey("command"))
+                        removeKey.SetValue("", ""); // Empty default value
+                        removeKey.SetValue("MUIVerb", "Remove from PATH");
+                        removeKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
+
+                        // Remove User PATH command
+                        using (var userKey = removeKey.CreateSubKey(@"Shell\User"))
                         {
-                            cmdKey.SetValue("", $"\"{ExePath}\" --addtosystempath \"%1\"");
+                            userKey.SetValue("MUIVerb", "User PATH");
+                            using (var cmdKey = userKey.CreateSubKey("command"))
+                            {
+                                cmdKey.SetValue("", $"\"{ExePath}\" --removefromuserpath \"%1\"");
+                            }
+                        }
+
+                        // Remove System PATH command
+                        using (var systemKey = removeKey.CreateSubKey(@"Shell\System"))
+                        {
+                            systemKey.SetValue("MUIVerb", "System PATH");
+                            using (var cmdKey = systemKey.CreateSubKey("command"))
+                            {
+                                cmdKey.SetValue("", $"\"{ExePath}\" --removefromsystempath \"%1\"");
+                            }
+                        }
+                    }
+
+                    // Check PATH Status command
+                    using (var checkKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\3_CheckPath"))
+                    {
+                        checkKey.SetValue("MUIVerb", "Check PATH Status");
+                        using (var cmdKey = checkKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --checkpath \"%1\"");
+                        }
+                    }
+
+                    // Show PATHs command
+                    using (var showKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\4_ShowPaths"))
+                    {
+                        showKey.SetValue("MUIVerb", "Show PATHs");
+                        using (var cmdKey = showKey.CreateSubKey("command"))
+                        {
+                            cmdKey.SetValue("", $"\"{ExePath}\" --showpaths");
                         }
                     }
                 }
-
-                // Remove from PATH submenu
-                using (var removeKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\2_RemoveFromPath"))
+                catch (Exception ex)
                 {
-                    removeKey.SetValue("", ""); // Empty default value
-                    removeKey.SetValue("MUIVerb", "Remove from PATH");
-                    removeKey.SetValue("SubCommands", ""); // This tells Windows it has subcommands
-
-                    // Remove User PATH command
-                    using (var userKey = removeKey.CreateSubKey(@"Shell\User"))
-                    {
-                        userKey.SetValue("MUIVerb", "User PATH");
-                        using (var cmdKey = userKey.CreateSubKey("command"))
-                        {
-                            cmdKey.SetValue("", $"\"{ExePath}\" --removefromuserpath \"%1\"");
-                        }
-                    }
-
-                    // Remove System PATH command
-                    using (var systemKey = removeKey.CreateSubKey(@"Shell\System"))
-                    {
-                        systemKey.SetValue("MUIVerb", "System PATH");
-                        using (var cmdKey = systemKey.CreateSubKey("command"))
-                        {
-                            cmdKey.SetValue("", $"\"{ExePath}\" --removefromsystempath \"%1\"");
-                        }
-                    }
+                    LogMessage("Failed to create registry entries", LogLevel.Error, "Installation", ex);
+                    MessageBox.Show(
+                        $"Installation failed: Could not create context menu entries\n{ex.Message}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return false;
                 }
 
-                // Check PATH Status command
-                using (var checkKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\3_CheckPath"))
+                // Add to system PATH if needed
+                try 
                 {
-                    checkKey.SetValue("MUIVerb", "Check PATH Status");
-                    using (var cmdKey = checkKey.CreateSubKey("command"))
+                    var (inUserPath, inSystemPath) = CheckPathLocation(InstallDir);
+                    if (!inSystemPath)
                     {
-                        cmdKey.SetValue("", $"\"{ExePath}\" --checkpath \"%1\"");
+                        AddToPath(InstallDir, true, false);
                     }
+                }
+                catch (Exception ex)
+                {
+                    LogMessage("Failed to add to system PATH", LogLevel.Error, "Installation", ex);
+                    MessageBox.Show(
+                        $"Installation failed: Could not add to system PATH\n{ex.Message}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return false;
                 }
 
-                // Show PATHs command (simplified)
-                using (var showKey = Registry.ClassesRoot.CreateSubKey(@"Directory\shell\Path\Shell\4_ShowPaths"))
-                {
-                    showKey.SetValue("MUIVerb", "Show PATHs");
-                    using (var cmdKey = showKey.CreateSubKey("command"))
-                    {
-                        cmdKey.SetValue("", $"\"{ExePath}\" --showpaths");
-                    }
-                }
+                return true;
             }
             catch (Exception ex)
             {
@@ -593,6 +688,7 @@ namespace AddToPath
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+                return false;
             }
         }
 

@@ -203,8 +203,10 @@ namespace AddToPath
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Information) == DialogResult.OK)
             {
-                Program.InstallContextMenu();
-                UpdateButtonStates();
+                if (Program.InstallContextMenu())
+                {
+                    UpdateButtonStates();
+                }
             }
         }
 
