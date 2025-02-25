@@ -47,11 +47,26 @@ jobs:
         Copy-Item "README.md" -Destination "release-temp" -ErrorAction SilentlyContinue
         if (Test-Path "README.md") {
             $readme = Get-Content "README.md" -Raw
-            # Remove Markdown formatting (basic conversion)
+            # Remove HTML tags and alignment
+            $readme = $readme -replace '<[^>]+>', '' `
+                            -replace '\s*<p[^>]*>\s*', "`r`n" `
+                            -replace '\s*</p>\s*', "`r`n"
+            # Remove image references and badges
+            $readme = $readme -replace '!\[[^\]]*\]\([^\)]+\)', '' `
+                            -replace '\[\![^\]]*\]\([^\)]+\)', ''
+            # Remove Markdown formatting
             $readme = $readme -replace '#+ ', '' `
                             -replace '\[([^\]]+)\]\([^\)]+\)', '$1' `
                             -replace '\*\*([^\*]+)\*\*', '$1' `
-                            -replace '`([^`]+)`', '$1'
+                            -replace '`([^`]+)`', '$1' `
+                            -replace '_([^_]+)_', '$1' `
+                            -replace '\*([^\*]+)\*', '$1'
+            # Fix code blocks
+            $readme = $readme -replace '```\w*\s*', '' `
+                            -replace '```\s*', ''
+            # Clean up multiple blank lines and trim
+            $readme = $readme -replace '(\r?\n\s*){3,}', "`r`n`r`n"
+            $readme = $readme.Trim()
             Set-Content -Path "release-temp/README.txt" -Value $readme -Encoding UTF8
         }
         if (Test-Path "LICENSE") {
