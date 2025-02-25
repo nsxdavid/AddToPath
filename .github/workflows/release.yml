@@ -39,8 +39,28 @@ jobs:
         $zipName = "AddToPath-v${version}-win-x64.zip"
         # First check if files exist
         Get-ChildItem -Path "bin/Release" -ErrorAction Continue
-        # Create ZIP with proper path
-        Compress-Archive -Path "bin/Release/*" -DestinationPath $zipName -Force
+        # Create a temporary directory for the release
+        New-Item -ItemType Directory -Path "release-temp" -Force
+        # Copy executables
+        Copy-Item "bin/Release/*" -Destination "release-temp" -Recurse
+        # Include both README formats and LICENSE
+        Copy-Item "README.md" -Destination "release-temp" -ErrorAction SilentlyContinue
+        if (Test-Path "README.md") {
+            $readme = Get-Content "README.md" -Raw
+            # Remove Markdown formatting (basic conversion)
+            $readme = $readme -replace '#+ ', '' `
+                            -replace '\[([^\]]+)\]\([^\)]+\)', '$1' `
+                            -replace '\*\*([^\*]+)\*\*', '$1' `
+                            -replace '`([^`]+)`', '$1'
+            Set-Content -Path "release-temp/README.txt" -Value $readme -Encoding UTF8
+        }
+        if (Test-Path "LICENSE") {
+            Copy-Item "LICENSE" -Destination "release-temp/LICENSE.txt"
+        }
+        # Create ZIP with all files
+        Compress-Archive -Path "release-temp/*" -DestinationPath $zipName -Force
+        # Cleanup
+        Remove-Item "release-temp" -Recurse -Force
 
     - name: Generate Release Notes
       id: release_notes
