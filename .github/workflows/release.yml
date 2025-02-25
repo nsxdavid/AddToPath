@@ -43,10 +43,15 @@ jobs:
         New-Item -ItemType Directory -Path "release-temp" -Force
         # Copy executables
         Copy-Item "bin/Release/*" -Destination "release-temp" -Recurse
-        # Include both README formats and LICENSE
-        Copy-Item "README.md" -Destination "release-temp" -ErrorAction SilentlyContinue
+        # Process and include README files
         if (Test-Path "README.md") {
+            # Create README.md with absolute image URLs
             $readme = Get-Content "README.md" -Raw
+            $repoUrl = "https://raw.githubusercontent.com/nsxdavid/AddToPath/${{ github.sha }}"
+            $readme = $readme -replace '(!\[.*?\])\((src/.*?)\)', "`$1($repoUrl/`$2)"
+            Set-Content -Path "release-temp/README.md" -Value $readme -Encoding UTF8
+            
+            # Create plain text README.txt
             # Remove HTML tags and alignment
             $readme = $readme -replace '<[^>]+>', '' `
                             -replace '\s*<p[^>]*>\s*', "`r`n" `
